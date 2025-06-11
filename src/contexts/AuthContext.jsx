@@ -24,11 +24,35 @@ export const AuthProvider = ({ children }) => {
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-  // --- LOGIN PARA CLIENTES (DESDE TABLA 'clients') ---
+  // REGISTRO DE CLIENTE
+  const registerClient = async (userData) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.msg || "No se pudo completar el registro.");
+      }
+
+      const loginResponse = await loginClient(
+        userData.userName,
+        userData.password,
+      );
+      return loginResponse;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // LOGIN PARA CLIENTES
   const loginClient = async (userName, password) => {
     setIsLoading(true);
     try {
-      // Asumimos que esta es tu ruta para el login de clientes
       const response = await fetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -39,8 +63,6 @@ export const AuthProvider = ({ children }) => {
       if (!response.ok || !data.ok) {
         throw new Error(data.msg || "Error al iniciar sesión");
       }
-
-      // Se añade el rol 'client' manualmente al objeto del cliente
       const clientWithRole = { ...data.client, role: "client" };
 
       setUser(clientWithRole);
@@ -58,7 +80,6 @@ export const AuthProvider = ({ children }) => {
   const loginAdmin = async (userName, password) => {
     setIsLoading(true);
     try {
-      // Apunta a la ruta de login de administradores
       const response = await fetch(`${API_URL}/api/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -70,7 +91,6 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.msg || "Credenciales de administrador inválidas");
       }
 
-      // Aquí el objeto 'user' ya viene con su rol desde el backend
       setUser(data.user);
       setToken(data.token);
       localStorage.setItem("token", data.token);
@@ -105,10 +125,19 @@ export const AuthProvider = ({ children }) => {
       isAuthenticated: !!token,
       loginClient,
       loginAdmin,
+      registerClient,
       logout,
       updateUser,
     }),
-    [user, token, isLoading, updateUser, loginClient, loginAdmin],
+    [
+      user,
+      token,
+      isLoading,
+      updateUser,
+      loginClient,
+      loginAdmin,
+      registerClient,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

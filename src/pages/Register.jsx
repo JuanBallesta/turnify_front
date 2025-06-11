@@ -1,5 +1,10 @@
+// src/pages/Register.jsx
+
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+
+// UI Components
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,247 +16,232 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ActionButton } from "@/components/ui/action-button";
+
+// Icons
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useAuth } from "@/contexts/AuthContext";
-import {
+  FiUser,
+  FiMail,
+  FiPhone,
+  FiLock,
   FiEye,
   FiEyeOff,
-  FiMail,
-  FiLock,
-  FiUser,
-  FiPhone,
 } from "react-icons/fi";
 
 const Register = () => {
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
+    lastName: "",
+    userName: "",
     phone: "",
+    email: "",
     password: "",
     confirmPassword: "",
-    role: "client",
   });
+  const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState("");
-  const { register, isLoading } = useAuth();
+
+  const { registerClient, isLoading } = useAuth();
   const navigate = useNavigate();
 
-  const handleChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.name) newErrors.name = "El nombre es requerido.";
+    if (!formData.lastName) newErrors.lastName = "El apellido es requerido.";
+    if (!formData.userName)
+      newErrors.userName = "El nombre de usuario es requerido.";
+    if (!formData.email) newErrors.email = "El email es requerido.";
+    else if (!/\S+@\S+\.\S+/.test(formData.email))
+      newErrors.email = "El formato del email es inválido.";
+    if (!formData.phone) newErrors.phone = "El teléfono es requerido.";
+    if (!formData.password) newErrors.password = "La contraseña es requerida.";
+    else if (formData.password.length < 8)
+      newErrors.password = "La contraseña debe tener al menos 8 caracteres.";
+    if (formData.password !== formData.confirmPassword)
+      newErrors.confirmPassword = "Las contraseñas no coinciden.";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-
-    if (!formData.name || !formData.email || !formData.password) {
-      setError("Por favor completa todos los campos requeridos");
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("Las contraseñas no coinciden");
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres");
-      return;
-    }
+    if (!validateForm()) return;
 
     try {
-      await register({
+      // Preparamos los datos que el backend espera
+      const userData = {
         name: formData.name,
-        email: formData.email,
+        lastName: formData.lastName,
+        userName: formData.userName,
         phone: formData.phone,
+        email: formData.email,
         password: formData.password,
-        role: formData.role,
-        businessId: formData.role !== "superuser" ? "business1" : undefined,
-      });
-      navigate("/dashboard");
+      };
+
+      await registerClient(userData);
+      navigate("/dashboard"); // Redirigir al dashboard después del registro y auto-login
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error en el registro");
+      setErrors({
+        api: err.message || "Error en el registro. Inténtalo de nuevo.",
+      });
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 to-violet-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-violet-50 flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <div className="flex justify-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-violet-600 to-violet-800 rounded-2xl flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">T</span>
-            </div>
-          </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Únete a Turnify
+            Crear una Cuenta
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Crea tu cuenta para comenzar
+            Únete para empezar a gestionar tus citas.
           </p>
         </div>
-
         <Card>
           <CardHeader>
-            <CardTitle>Registrarse</CardTitle>
+            <CardTitle>Registro de Cliente</CardTitle>
             <CardDescription>
-              Completa tu información para crear una cuenta
+              Completa tus datos para crear una cuenta.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
+              {errors.api && (
                 <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription>{errors.api}</AlertDescription>
                 </Alert>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="name">Nombre Completo *</Label>
-                <div className="relative">
-                  <FiUser className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Nombre *</Label>
                   <Input
                     id="name"
-                    type="text"
-                    placeholder="Ingresa tu nombre completo"
+                    name="name"
                     value={formData.name}
-                    onChange={(e) => handleChange("name", e.target.value)}
-                    className="pl-10"
-                    required
+                    onChange={handleChange}
                   />
+                  {errors.name && (
+                    <p className="text-red-500 text-xs mt-1">{errors.name}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="lastName">Apellido *</Label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                  />
+                  {errors.lastName && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.lastName}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div>
+                <Label htmlFor="userName">Nombre de Usuario *</Label>
+                <Input
+                  id="userName"
+                  name="userName"
+                  value={formData.userName}
+                  onChange={handleChange}
+                />
+                {errors.userName && (
+                  <p className="text-red-500 text-xs mt-1">{errors.userName}</p>
+                )}
+              </div>
+              <div>
                 <Label htmlFor="email">Correo Electrónico *</Label>
-                <div className="relative">
-                  <FiMail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Ingresa tu correo electrónico"
-                    value={formData.email}
-                    onChange={(e) => handleChange("email", e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+                {errors.email && (
+                  <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="phone">Teléfono *</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleChange}
+                />
+                {errors.phone && (
+                  <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone">Número de Teléfono</Label>
-                <div className="relative">
-                  <FiPhone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="Ingresa tu número de teléfono"
-                    value={formData.phone}
-                    onChange={(e) => handleChange("phone", e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="role">Tipo de Cuenta</Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(value) => handleChange("role", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona tu tipo de cuenta" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="client">Cliente</SelectItem>
-                    <SelectItem value="employee">Empleado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
+              <div className="relative">
                 <Label htmlFor="password">Contraseña *</Label>
-                <div className="relative">
-                  <FiLock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Ingresa tu contraseña"
-                    value={formData.password}
-                    onChange={(e) => handleChange("password", e.target.value)}
-                    className="pl-10 pr-10"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <FiEyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <FiEye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
-                </div>
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 bottom-0 h-9"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <FiEyeOff /> : <FiEye />}
+                </Button>
+                {errors.password && (
+                  <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+                )}
               </div>
 
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="confirmPassword">Confirmar Contraseña *</Label>
-                <div className="relative">
-                  <FiLock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirma tu contraseña"
-                    value={formData.confirmPassword}
-                    onChange={(e) =>
-                      handleChange("confirmPassword", e.target.value)
-                    }
-                    className="pl-10 pr-10"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <FiEyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <FiEye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
-                </div>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                />
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.confirmPassword}
+                  </p>
+                )}
               </div>
 
-              <Button
+              <ActionButton
                 type="submit"
-                className="w-full bg-violet-600 hover:bg-violet-700"
-                disabled={isLoading}
+                className="w-full"
+                isLoading={isLoading}
+                loadingText="Creando cuenta..."
               >
-                {isLoading ? "Creando Cuenta..." : "Crear Cuenta"}
-              </Button>
+                Crear Cuenta
+              </ActionButton>
             </form>
-
-            <div className="mt-6 text-center text-sm text-gray-600">
-              ¿Ya tienes una cuenta?{" "}
+            <div className="mt-6 text-center text-sm">
+              ¿Ya tienes cuenta?{" "}
               <Link
                 to="/login"
-                className="text-violet-600 hover:text-violet-700 font-medium"
+                className="font-medium text-violet-600 hover:text-violet-500"
               >
-                Iniciar sesión
+                Inicia sesión
               </Link>
             </div>
           </CardContent>
