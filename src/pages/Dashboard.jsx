@@ -265,7 +265,7 @@ const AdminDashboard = ({ appointments, services, appointmentColumns }) => (
   </div>
 );
 
-// --- Componente Principal y Lógica de Renderizado ---
+// Componente Principal y Lógica de Renderizado
 const Dashboard = () => {
   const { user } = useAuth();
   const { appointments, services } = useApp();
@@ -291,13 +291,11 @@ const Dashboard = () => {
   const today = new Date().toDateString();
   const thisMonth = new Date().getMonth();
 
-  // CORRECCIÓN: Asegurarse de que el filtro use los roles en minúsculas y en inglés
   const getFilteredAppointments = () => {
     if (user.role === "client") {
       return appointments.filter((apt) => apt.clientId === user.id);
     }
     if (user.role === "employee") {
-      // <-- Ahora coincide con 'employee'
       return appointments.filter((apt) => apt.employeeId === user.id);
     }
     return appointments;
@@ -324,7 +322,7 @@ const Dashboard = () => {
       administrator: "Administrador",
       superuser: "Super Usuario",
     };
-    return roles[role] || "Usuario Desconocido"; // Traduce el rol estándar a español para mostrarlo
+    return roles[role] || "Usuario Desconocido";
   };
 
   const renderDashboardByRole = () => {
@@ -339,7 +337,6 @@ const Dashboard = () => {
       userAppointments: relevantAppointments,
     };
 
-    // CORRECCIÓN FINAL: El switch ahora usa los roles estandarizados en inglés y minúsculas
     switch (user.role) {
       case "client":
         return <ClientDashboard {...props} />;

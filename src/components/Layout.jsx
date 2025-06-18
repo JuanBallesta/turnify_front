@@ -37,7 +37,7 @@ const Layout = ({ children }) => {
 
   // Hooks de notificaciones
   const { unreadCount } = useNotifications();
-  useNotificationIntegration(); // Re-habilitado con correcciones
+  useNotificationIntegration();
 
   const handleLogout = () => {
     logout();
@@ -47,8 +47,6 @@ const Layout = ({ children }) => {
   const getNavItems = () => {
     const baseItems = [
       { icon: FiHome, label: "Panel Principal", path: "/dashboard" },
-      { icon: FiCalendar, label: "Citas", path: "/appointments" },
-      { icon: FiBell, label: "Notificaciones", path: "/notifications-test" },
       { icon: FiUser, label: "Perfil", path: "/profile" },
     ];
 
@@ -57,6 +55,7 @@ const Layout = ({ children }) => {
         return [
           ...baseItems,
           { icon: FiPlus, label: "Reservar Cita", path: "/book" },
+          { icon: FiCalendar, label: "Citas", path: "/appointments" },
         ];
       case "employee":
         return baseItems;
@@ -70,11 +69,9 @@ const Layout = ({ children }) => {
       case "superuser":
         return [
           ...baseItems,
-          { icon: FiUsers, label: "Empleados", path: "/employees" },
-          { icon: FiGrid, label: "Servicios", path: "/services" },
-          { icon: FiPlus, label: "Programar Cita", path: "/schedule" },
-          { icon: FiSettings, label: "Panel de Admin", path: "/admin" },
           { icon: FiGrid, label: "Negocios", path: "/businesses" },
+          { icon: FiUsers, label: "Empleados", path: "/employees" },
+          { icon: FiSettings, label: "Panel de Admin", path: "/admin" },
         ];
       default:
         return baseItems;

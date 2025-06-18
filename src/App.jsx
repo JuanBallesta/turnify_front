@@ -26,6 +26,8 @@ import Unauthorized from "@/pages/Unauthorized";
 import NotFound from "@/pages/NotFound";
 import TestPage from "@/pages/TestPage";
 import NotificationTest from "@/pages/NotificationTest";
+import Businesses from "./pages/Businesses";
+import Employees from "./pages/Employees";
 
 const queryClient = new QueryClient();
 
@@ -41,7 +43,6 @@ const App = () => {
                   {/* --- RUTAS PÚBLICAS --- */}
                   <Route path="/login" element={<Login />} />
 
-                  {/* === LÍNEA AÑADIDA === */}
                   <Route path="/admin/login" element={<AdminLogin />} />
 
                   <Route path="/register" element={<Register />} />
@@ -118,7 +119,28 @@ const App = () => {
                       </ProtectedRoute>
                     }
                   />
-                  {/* ... y el resto de tus rutas protegidas ... */}
+                  <Route
+                    path="/employees"
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["administrator", "superuser"]}
+                      >
+                        <Layout>
+                          <Employees />
+                        </Layout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/businesses"
+                    element={
+                      <ProtectedRoute allowedRoles={["superuser"]}>
+                        <Layout>
+                          <Businesses />
+                        </Layout>
+                      </ProtectedRoute>
+                    }
+                  />
 
                   <Route path="*" element={<NotFound />} />
                 </Routes>

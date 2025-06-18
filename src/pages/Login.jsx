@@ -1,10 +1,7 @@
-// src/pages/Login.jsx (o donde lo tengas)
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
-// UI Components
 import {
   Card,
   CardContent,
@@ -17,7 +14,6 @@ import { FormField } from "@/components/ui/form-field";
 import { ActionButton } from "@/components/ui/action-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Icons
 import { FiEye, FiEyeOff, FiUser, FiLock, FiLogIn } from "react-icons/fi";
 
 const Login = () => {
@@ -27,7 +23,6 @@ const Login = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // CAMBIO 1: Obtener `loginClient` en lugar del antiguo `login`.
   const { loginClient } = useAuth();
   const navigate = useNavigate();
 
@@ -51,21 +46,6 @@ const Login = () => {
         err.message ||
           "Credenciales inválidas. Por favor, verifica tu usuario y contraseña.",
       );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Función de login rápido para cuentas demo (opcional, pero también actualizada)
-  const quickLogin = async (userDemoName, userDemoPassword) => {
-    setIsLoading(true);
-    setError("");
-    try {
-      // También debe usar `loginClient`
-      await loginClient(userDemoName, userDemoPassword);
-      navigate("/dashboard");
-    } catch (err) {
-      setError(err.message || "Error al iniciar sesión con la cuenta demo.");
     } finally {
       setIsLoading(false);
     }
@@ -168,34 +148,6 @@ const Login = () => {
               >
                 ¿No tienes cuenta? Regístrate aquí
               </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Demo Accounts */}
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle className="text-lg">Cuentas de Demostración</CardTitle>
-            <CardDescription>
-              Prueba la aplicación con diferentes roles de usuario
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 gap-2">
-              <ActionButton
-                variant="outline"
-                onClick={() => quickLogin("cliente_demo", "password123")}
-                isLoading={isLoading}
-                icon={FiUser}
-                className="justify-start"
-              >
-                <div className="text-left">
-                  <div className="font-medium">Cliente Demo</div>
-                  <div className="text-xs text-gray-500">
-                    Reservar citas y ver historial
-                  </div>
-                </div>
-              </ActionButton>
             </div>
           </CardContent>
         </Card>
