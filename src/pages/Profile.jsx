@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useApp } from "@/contexts/AppContext";
+import apiClient from "@/services/api"; // Importamos apiClient para las llamadas directas
 
 // UI Components
 import { PageHeader } from "@/components/ui/page-header";
@@ -20,7 +21,6 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ActionButton } from "@/components/ui/action-button";
-import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -54,7 +54,6 @@ import {
 const Profile = () => {
   const {
     user,
-    token,
     updateUser,
     changePassword,
     isLoading: authIsLoading,
@@ -72,7 +71,7 @@ const Profile = () => {
   const [profileSuccess, setProfileSuccess] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Estados de cambio de contraseña (sin cambios en la estructura)
+  // Estados de cambio de contraseña
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -108,10 +107,11 @@ const Profile = () => {
     };
     return requirements;
   };
+
   const getPasswordStrength = (password) => {
+    if (!password) return { strength: 0, color: "bg-gray-200", label: "" };
     const requirements = validatePassword(password);
     const score = Object.values(requirements).filter(Boolean).length;
-
     if (score <= 2)
       return { strength: 25, color: "bg-red-500", label: "Débil" };
     if (score <= 3)
@@ -123,82 +123,91 @@ const Profile = () => {
 
   const passwordStrength = getPasswordStrength(passwordData.newPassword);
   const passwordRequirements = validatePassword(passwordData.newPassword);
-  const handlePasswordChange = (field, value) =>
+
+  const handlePasswordChange = (field, value) => {
     setPasswordData((prev) => ({ ...prev, [field]: value }));
+    if (passwordErrors[field] || passwordErrors.general) {
+      setPasswordErrors({});
+    }
+  };
 
-  const validatePasswordChange = () => {};
+  const handleChangePassword = async () => {
+    setPasswordErrors({});
+    setPasswordSuccess("");
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordErrors({ confirmPassword: "Las contraseñas no coinciden." });
+      return;
+    }
+    try {
+      await changePassword(
+        passwordData.currentPassword,
+        passwordData.newPassword,
+      );
+      setPasswordSuccess("Contraseña cambiada exitosamente");
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setTimeout(() => {
+        setShowPasswordDialog(false);
+        setPasswordSuccess("");
+      }, 2000);
+    } catch (error) {
+      setPasswordErrors({ general: error.message });
+    }
+  };
 
-  const handleChangePassword = async () => {};
-  const getRoleLabel = (role) => {};
-  const getRoleBadgeVariant = (role) => {};
-  const togglePasswordVisibility = (field) =>
+  const getRoleLabel = (role) => {
+    const roles = {
+      client: "Cliente",
+      employee: "Empleado",
+      administrator: "Administrador",
+      superuser: "Super Usuario",
+    };
+    return roles[role] || role;
+  };
+
+  const getRoleBadgeVariant = (role) => {
+    const variants = {
+      client: "secondary",
+      employee: "default",
+      administrator: "primary",
+      superuser: "default",
+    };
+    return variants[role] || "secondary";
+  };
+
+  const togglePasswordVisibility = (field) => {
     setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }));
+  };
 
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
     setProfileData((prev) => ({ ...prev, [name]: value }));
-    if (profileErrors[name]) {
-      setProfileErrors((prev) => ({ ...prev, [name]: "" }));
-    }
-  };
-
-  const validateProfile = () => {
-    const errors = {};
-    if (!profileData.name.trim()) errors.name = "El nombre es requerido";
-    if (!profileData.lastName.trim())
-      errors.lastName = "El apellido es requerido";
-    if (!profileData.phone.trim()) errors.phone = "El teléfono es requerido";
-    return errors;
   };
 
   const handleSaveProfile = async () => {
-    const errors = validateProfile();
-    if (Object.keys(errors).length > 0) {
-      setProfileErrors(errors);
-      return;
-    }
     setIsSavingProfile(true);
-    setProfileSuccess("");
     setProfileErrors({});
+    setProfileSuccess("");
     try {
-      const API_URL = import.meta.env.VITE_API_URL;
-      if (!API_URL) {
-        throw new Error(
-          "Error de configuración: VITE_API_URL no está definida.",
-        );
-      }
+      if (!user || !user.id) throw new Error("Usuario no encontrado");
 
-      // *** LÓGICA DE DECISIÓN DE RUTA ***
-      // Basado en el rol del usuario, decidimos a qué endpoint llamar.
       const endpoint =
-        user.role === "client"
-          ? `/users/${user.id}` // Para clientes, usamos la ruta de 'users'
-          : `/employees/${user.id}`; // Para todos los demás, usamos la ruta de 'employees'
+        user.role === "client" ? `/users/${user.id}` : `/employees/${user.id}`;
 
-      const fullUrl = `${API_URL.endsWith("/") ? API_URL.slice(0, -1) : API_URL}${endpoint}`;
+      const response = await apiClient.put(endpoint, profileData);
 
-      const response = await fetch(fullUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(profileData),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.msg || "No se pudo actualizar el perfil.");
-      }
-
-      // La respuesta del back-end (tanto de updateUser como de updateEmployee)
-      // debe devolver un objeto con la clave 'user' para ser consistente.
-      updateUser(data.user);
+      updateUser(response.data.user);
       setProfileSuccess("Perfil actualizado exitosamente");
       setIsEditing(false);
       setTimeout(() => setProfileSuccess(""), 3000);
     } catch (error) {
-      setProfileErrors({ general: error.message });
+      setProfileErrors({
+        general:
+          error.response?.data?.msg || "No se pudo actualizar el perfil.",
+      });
     } finally {
       setIsSavingProfile(false);
     }
@@ -217,6 +226,14 @@ const Profile = () => {
     setIsEditing(false);
   };
 
+  if (!user) {
+    return (
+      <div className="p-6">
+        <PageHeader title="Cargando Perfil..." />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       <PageHeader
@@ -231,30 +248,30 @@ const Profile = () => {
           <TabsTrigger value="security">Seguridad</TabsTrigger>
           <TabsTrigger value="preferences">Preferencias</TabsTrigger>
         </TabsList>
+
         <TabsContent value="profile" className="space-y-6">
           <Card>
-            {/* CardHeader permanece igual */}
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <ProfilePhotoUpload
-                    currentPhoto={user?.photo}
-                    userName={user?.name}
-                    onPhotoUpdate={async (photoUrl) =>
-                      await updateUser({ photo: photoUrl })
+                    currentPhoto={user.photo}
+                    userName={user.name}
+                    onPhotoUpdate={(photoUrl) =>
+                      updateUser({ photo: photoUrl })
                     }
                     isLoading={authIsLoading}
                   />
                   <div>
                     <CardTitle className="text-2xl">
-                      {user?.name} {user?.lastName}
+                      {user.name} {user.lastName}
                     </CardTitle>
                     <div className="flex items-center space-x-2 mt-2">
-                      <Badge variant={getRoleBadgeVariant(user?.role)}>
-                        {getRoleLabel(user?.role)}
+                      <Badge variant={getRoleBadgeVariant(user.role)}>
+                        {getRoleLabel(user.role)}
                       </Badge>
                       <span className="text-sm text-gray-500">
-                        @{user?.userName}
+                        @{user.userName}
                       </span>
                     </div>
                   </div>
@@ -283,7 +300,6 @@ const Profile = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Mensajes de éxito y error permanecen igual */}
               {profileSuccess && (
                 <Alert>
                   <FiCheck className="h-4 w-4" />
@@ -295,8 +311,6 @@ const Profile = () => {
                   <AlertDescription>{profileErrors.general}</AlertDescription>
                 </Alert>
               )}
-
-              {/* Formulario adaptado al modelo `users` permanece igual */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   label="Nombre"
@@ -354,7 +368,7 @@ const Profile = () => {
                     <Input
                       id="email"
                       type="email"
-                      value={user?.email || ""}
+                      value={user.email || ""}
                       disabled
                       className="pl-10"
                     />
@@ -381,23 +395,251 @@ const Profile = () => {
           </Card>
         </TabsContent>
 
-        {/* El resto de las TABS y el DIALOG permanecen igual */}
         <TabsContent value="activity" className="space-y-6">
           <ProfileStats user={user} appointments={appointments} />
         </TabsContent>
+
         <TabsContent value="security" className="space-y-6">
-          {/* ... */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <FiShield className="w-5 h-5" />
+                <span>Configuración de Seguridad</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-violet-100 rounded-lg">
+                      <FiLock className="w-5 h-5 text-violet-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900">Contraseña</h4>
+                      <p className="text-sm text-gray-600">
+                        Actualiza tu contraseña para mantener la seguridad
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowPasswordDialog(true)}
+                  >
+                    <FiLock className="w-4 h-4 mr-2" />
+                    Cambiar Contraseña
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <FiShield className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900">
+                        Verificación en Dos Pasos
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        Próximamente disponible
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="outline" disabled>
+                    Configurar
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
+
         <TabsContent value="preferences" className="space-y-6">
-          {/* ... */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <FiSettings className="w-5 h-5" />
+                <span>Preferencias de Usuario</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12">
+                <FiSettings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Próximamente
+                </h3>
+                <p className="text-gray-600">
+                  Las preferencias de usuario estarán disponibles en una próxima
+                  actualización.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
         <DialogContent className="max-w-md">
-          <DialogHeader>{/* ... */}</DialogHeader>
-          <div className="space-y-6">
-            {/* ... */}
+          <DialogHeader>
+            <DialogTitle>Cambiar Contraseña</DialogTitle>
+            <DialogDescription>
+              Actualiza tu contraseña para mantener tu cuenta segura
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {passwordSuccess && (
+              <Alert>
+                <FiCheck className="h-4 w-4" />
+                <AlertDescription>{passwordSuccess}</AlertDescription>
+              </Alert>
+            )}
+            {passwordErrors.general && (
+              <Alert variant="destructive">
+                <AlertDescription>{passwordErrors.general}</AlertDescription>
+              </Alert>
+            )}
+            <div className="space-y-4">
+              <FormField
+                label="Contraseña Actual"
+                htmlFor="currentPassword"
+                required
+                error={passwordErrors.currentPassword}
+              >
+                <div className="relative">
+                  <Input
+                    id="currentPassword"
+                    type={showPasswords.current ? "text" : "password"}
+                    value={passwordData.currentPassword}
+                    onChange={(e) =>
+                      handlePasswordChange("currentPassword", e.target.value)
+                    }
+                    placeholder="Tu contraseña actual"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    onClick={() => togglePasswordVisibility("current")}
+                  >
+                    {showPasswords.current ? (
+                      <FiEyeOff className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <FiEye className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              </FormField>
+              <FormField
+                label="Nueva Contraseña"
+                htmlFor="newPassword"
+                required
+                error={passwordErrors.newPassword}
+              >
+                <div className="relative">
+                  <Input
+                    id="newPassword"
+                    type={showPasswords.new ? "text" : "password"}
+                    value={passwordData.newPassword}
+                    onChange={(e) =>
+                      handlePasswordChange("newPassword", e.target.value)
+                    }
+                    placeholder="Tu nueva contraseña"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    onClick={() => togglePasswordVisibility("new")}
+                  >
+                    {showPasswords.new ? (
+                      <FiEyeOff className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <FiEye className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              </FormField>
+              {passwordData.newPassword && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Fortaleza:</span>
+                    <span
+                      className={`text-sm font-medium ${passwordStrength.color.replace("bg-", "text-")}`}
+                    >
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                  <Progress value={passwordStrength.strength} className="h-2" />
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div
+                      className={`flex items-center space-x-1 ${passwordRequirements.length ? "text-green-600" : "text-gray-400"}`}
+                    >
+                      {passwordRequirements.length ? (
+                        <FiCheck className="w-3 h-3" />
+                      ) : (
+                        <FiX className="w-3 h-3" />
+                      )}
+                      <span>8+ caracteres</span>
+                    </div>
+                    <div
+                      className={`flex items-center space-x-1 ${passwordRequirements.uppercase ? "text-green-600" : "text-gray-400"}`}
+                    >
+                      {passwordRequirements.uppercase ? (
+                        <FiCheck className="w-3 h-3" />
+                      ) : (
+                        <FiX className="w-3 h-3" />
+                      )}
+                      <span>Mayúscula</span>
+                    </div>
+                    <div
+                      className={`flex items-center space-x-1 ${passwordRequirements.lowercase ? "text-green-600" : "text-gray-400"}`}
+                    >
+                      {passwordRequirements.lowercase ? (
+                        <FiCheck className="w-3 h-3" />
+                      ) : (
+                        <FiX className="w-3 h-3" />
+                      )}
+                      <span>Minúscula</span>
+                    </div>
+                    <div
+                      className={`flex items-center space-x-1 ${passwordRequirements.number ? "text-green-600" : "text-gray-400"}`}
+                    >
+                      {passwordRequirements.number ? (
+                        <FiCheck className="w-3 h-3" />
+                      ) : (
+                        <FiX className="w-3 h-3" />
+                      )}
+                      <span>Número</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <FormField
+                label="Confirmar Nueva Contraseña"
+                htmlFor="confirmPassword"
+                required
+                error={passwordErrors.confirmPassword}
+              >
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    type={showPasswords.confirm ? "text" : "password"}
+                    value={passwordData.confirmPassword}
+                    onChange={(e) =>
+                      handlePasswordChange("confirmPassword", e.target.value)
+                    }
+                    placeholder="Confirma tu nueva contraseña"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    onClick={() => togglePasswordVisibility("confirm")}
+                  >
+                    {showPasswords.confirm ? (
+                      <FiEyeOff className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <FiEye className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              </FormField>
+            </div>
             <div className="flex space-x-3 pt-4 border-t">
               <Button
                 variant="outline"
@@ -406,7 +648,6 @@ const Profile = () => {
               >
                 Cancelar
               </Button>
-              {/* CORRECCIÓN FINAL: Usar `authIsLoading` para el estado de carga del cambio de contraseña */}
               <ActionButton
                 onClick={handleChangePassword}
                 isLoading={authIsLoading}

@@ -31,8 +31,6 @@ export const deleteEmployee = async (employeeId) => {
   }
 };
 
-// --- Funciones para el formulario (las usaremos después) ---
-
 /**
  * Crea un nuevo empleado.
  * @param {object} employeeData - Los datos del empleado a crear.

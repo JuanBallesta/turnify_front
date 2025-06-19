@@ -6,6 +6,8 @@ import React, {
   useCallback,
 } from "react";
 
+import { changeUserPassword } from "@/services/AuthService";
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -115,6 +117,30 @@ export const AuthProvider = ({ children }) => {
     });
   }, []);
 
+  const changePassword = async (currentPassword, newPassword) => {
+    // El 'user' ya está disponible en el scope del contexto
+    if (!user || !user.role) {
+      throw new Error("No hay un usuario o rol definido para esta acción.");
+    }
+
+    setIsLoading(true);
+    try {
+      // Pasamos el rol del usuario al servicio para que elija la ruta correcta
+      const response = await changeUserPassword(
+        { currentPassword, newPassword },
+        user.role, // ej: 'client', 'superuser', etc.
+      );
+
+      return response;
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.msg || "Error al cambiar la contraseña.";
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value = useMemo(
     () => ({
       user,
@@ -126,16 +152,9 @@ export const AuthProvider = ({ children }) => {
       registerClient,
       logout,
       updateUser,
+      changePassword, // <-- Exponemos la función
     }),
-    [
-      user,
-      token,
-      isLoading,
-      updateUser,
-      loginClient,
-      loginAdmin,
-      registerClient,
-    ],
+    [user, token, isLoading, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
