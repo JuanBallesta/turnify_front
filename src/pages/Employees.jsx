@@ -1,17 +1,18 @@
-import { useState, useEffect } from "react";
-import Layout from "../components/Layout";
-import EmployeeForm from "../components/EmployeeForm";
+import { useState, useEffect, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import Layout from "@/components/Layout";
+import EmployeeForm from "@/components/EmployeeForm";
+import { getEmployees, deleteEmployee } from "@/services/EmployeeService";
 
-import { getEmployees, deleteEmployee } from "../services/EmployeeService";
-
-import { Button } from "../components/ui/button";
+// UI Components
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../components/ui/card";
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -19,7 +20,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table";
+} from "@/components/ui/table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,8 +31,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "../components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+
+// Icons
 import {
   Plus,
   Edit,
@@ -42,53 +45,92 @@ import {
   Mail,
   Phone,
   Building2,
+  ArrowUpDown,
 } from "lucide-react";
 
 export default function Employees() {
+  const { user } = useAuth();
   const [employees, setEmployees] = useState([]);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState(undefined);
-
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(undefined);
+  const [sortConfig, setSortConfig] = useState({
+    key: "lastName",
+    direction: "ascending",
+  });
 
   const loadEmployees = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-      const data = await getEmployees();
-      setEmployees(data || []);
+      const businessIdToFilter =
+        user.role === "administrator" ? user.businessId : null;
+      const data = await getEmployees(businessIdToFilter);
+      setEmployees(data);
     } catch (err) {
-      setError("No se pudieron cargar los empleados. Inténtalo de nuevo.");
-      console.error(err);
+      setError("No se pudieron cargar los empleados.");
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadEmployees();
-  }, []);
+    // Solo carga los empleados si el objeto 'user' existe
+    if (user?.id) {
+      loadEmployees();
+    }
+  }, [user?.id]); // Dependencia estable que asegura la carga una vez que el usuario está listo
+
+  const sortedEmployees = useMemo(() => {
+    let sortableItems = [...employees];
+    if (sortConfig.key) {
+      sortableItems.sort((a, b) => {
+        let aValue = a;
+        let bValue = b;
+        sortConfig.key.split(".").forEach((key) => {
+          aValue = aValue?.[key];
+          bValue = bValue?.[key];
+        });
+
+        if (aValue == null || aValue < bValue)
+          return sortConfig.direction === "ascending" ? -1 : 1;
+        if (bValue == null || aValue > bValue)
+          return sortConfig.direction === "ascending" ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [employees, sortConfig]);
+
+  const requestSort = (key) => {
+    setSortConfig((prevConfig) => ({
+      key,
+      direction:
+        prevConfig.key === key && prevConfig.direction === "ascending"
+          ? "descending"
+          : "ascending",
+    }));
+  };
 
   const handleEdit = (employee) => {
     setEditingEmployee(employee);
     setIsFormOpen(true);
   };
-
   const handleDelete = async (employeeId) => {
     try {
       await deleteEmployee(employeeId);
       loadEmployees();
-    } catch (err) {
+    } catch {
       alert("Error al eliminar el empleado.");
     }
   };
-
   const handleFormSuccess = () => {
     loadEmployees();
-    setEditingEmployee(undefined);
+    setIsFormOpen(false);
+    setEditingEmployee(undefined); // Limpiar el empleado en edición
   };
-
   const handleNewEmployee = () => {
     setEditingEmployee(undefined);
     setIsFormOpen(true);
@@ -100,15 +142,10 @@ export default function Employees() {
   return (
     <>
       <div className="p-6 space-y-6">
-        {/* Header (sin cambios) */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Empleados
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Administra cuentas y permisos de empleados
-            </p>
+            <h1 className="text-3xl font-bold">Empleados</h1>
+            <p className="text-gray-600 mt-1">Administra cuentas y permisos</p>
           </div>
           <Button
             onClick={handleNewEmployee}
@@ -118,8 +155,6 @@ export default function Employees() {
             Agregar Empleado
           </Button>
         </div>
-
-        {/* Stats (La tarjeta de "Negocios" se quita porque no tenemos ese dato directamente) */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4 flex items-center space-x-3">
@@ -127,7 +162,7 @@ export default function Employees() {
                 <Users className="h-5 w-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-sm font-medium">Total de Empleados</p>
+                <p className="text-sm font-medium">Total</p>
                 <p className="text-2xl font-bold">
                   {isLoading ? "..." : employees.length}
                 </p>
@@ -161,15 +196,17 @@ export default function Employees() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Employees Table */}
         <Card className="border-0 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">
-              Todos los Empleados
+            <CardTitle>
+              {user?.role === "administrator"
+                ? `Empleados de tu Negocio`
+                : "Todos los Empleados"}
             </CardTitle>
             <CardDescription>
-              Una lista completa de todos los empleados en todos los negocios
+              {user?.role === "administrator"
+                ? "Una lista de los empleados registrados en tu negocio."
+                : "Una lista completa de todos los empleados en todos los negocios."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -177,55 +214,141 @@ export default function Employees() {
               <div className="text-center py-12">Cargando empleados...</div>
             ) : error ? (
               <div className="text-center py-12 text-red-500">{error}</div>
-            ) : employees.length === 0 ? (
-              <div className="text-center py-12">{/* ... (sin cambios) */}</div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>{/* ... (sin cambios) */}</TableHeader>
-                  <TableBody>
-                    {employees.map((employee) => (
-                      <TableRow key={employee.id}>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            {/* ... (sin cambios) */}
-                          </div>
-                        </TableCell>
-                        <TableCell>{/* ... (sin cambios) */}</TableCell>
-                        <TableCell>
-                          {/* CAMBIO 5: Usar los datos anidados del negocio */}
-                          <div className="flex items-center space-x-2">
-                            <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center">
-                              <Building2 className="h-4 w-4 text-white" />
-                            </div>
-                            <p className="text-sm font-medium truncate">
-                              {employee.business?.name || "N/A"}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {/* CAMBIO 6: Usar los datos anidados del rol */}
-                          <Badge
-                            variant="secondary"
-                            className="bg-violet-100 text-violet-800"
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>
+                        <Button
+                          variant="ghost"
+                          onClick={() => requestSort("lastName")}
+                        >
+                          Empleado <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead>Contacto</TableHead>
+                      {user?.role === "superuser" && (
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            onClick={() => requestSort("business.name")}
                           >
-                            {employee.userType?.name || "N/A"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{/* ... (sin cambios) */}</TableCell>
-                        <TableCell>
-                          {/* CAMBIO 7: Asegurarse de que createdAt es una fecha válida */}
-                          <p className="text-sm text-gray-500">
-                            {new Date(employee.createdAt).toLocaleDateString(
-                              "es-ES",
-                            )}
-                          </p>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {/* ... (sin cambios) */}
+                            Negocio <ArrowUpDown className="ml-2 h-4 w-4" />
+                          </Button>
+                        </TableHead>
+                      )}
+                      <TableHead>
+                        <Button
+                          variant="ghost"
+                          onClick={() => requestSort("userType.name")}
+                        >
+                          Rol <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedEmployees.length > 0 ? (
+                      sortedEmployees.map((employee) => (
+                        <TableRow key={employee.id}>
+                          <TableCell>
+                            <div className="font-medium">
+                              {employee.lastName}, {employee.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              @{employee.username}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center text-sm">
+                              <Mail className="h-3 w-3 mr-1.5 text-gray-400" />
+                              {employee.email}
+                            </div>
+                          </TableCell>
+                          {user?.role === "superuser" && (
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center">
+                                  <Building2 className="h-4 w-4" />
+                                </div>
+                                <span>{employee.business?.name || "N/A"}</span>
+                              </div>
+                            </TableCell>
+                          )}
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {employee.userType?.name || "N/A"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={
+                                employee.isActive
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }
+                            >
+                              {employee.isActive ? "Activo" : "Inactivo"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(employee)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    Eliminar Empleado
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    ¿Estás seguro? Esta acción eliminará a "
+                                    {employee.name} {employee.lastName}"
+                                    permanentemente.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>
+                                    Cancelar
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDelete(employee.id)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Eliminar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={user?.role === "superuser" ? 6 : 5}
+                          className="text-center h-24"
+                        >
+                          No se encontraron empleados.
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -234,12 +357,17 @@ export default function Employees() {
         </Card>
       </div>
 
-      <EmployeeForm
-        employee={editingEmployee}
-        open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        onSuccess={handleFormSuccess}
-      />
+      {/* La prop 'key' fuerza al formulario a reiniciarse completamente cada vez que cambia el empleado a editar */}
+      {isFormOpen && (
+        <EmployeeForm
+          key={editingEmployee ? editingEmployee.id : "new-employee"}
+          employee={editingEmployee}
+          open={isFormOpen}
+          onOpenChange={setIsFormOpen}
+          onSuccess={handleFormSuccess}
+          currentUser={user}
+        />
+      )}
     </>
   );
 }

@@ -196,10 +196,15 @@ const Profile = () => {
 
       const endpoint =
         user.role === "client" ? `/users/${user.id}` : `/employees/${user.id}`;
-
       const response = await apiClient.put(endpoint, profileData);
 
-      updateUser(response.data.user);
+      console.log("Respuesta de la API al actualizar perfil:", response.data);
+      console.log(
+        "Objeto de usuario que se pasará a updateUser:",
+        response.data.data,
+      );
+
+      updateUser(response.data.data);
       setProfileSuccess("Perfil actualizado exitosamente");
       setIsEditing(false);
       setTimeout(() => setProfileSuccess(""), 3000);

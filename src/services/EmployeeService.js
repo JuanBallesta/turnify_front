@@ -1,9 +1,15 @@
 import apiClient from "./api";
 
-export const getEmployees = async () => {
+/**
+ * @param {string|number} [businessId] - El ID del negocio para filtrar los empleados (opcional).
+ */
+export const getEmployees = async (businessId) => {
   try {
-    const response = await apiClient.get("/employees");
-
+    let endpoint = "/employees";
+    if (businessId) {
+      endpoint += `?businessId=${businessId}`;
+    }
+    const response = await apiClient.get(endpoint);
     return response.data.data || [];
   } catch (error) {
     console.error(

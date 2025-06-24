@@ -271,7 +271,7 @@ const NotificationCenter = () => {
                             {/* Badge de tipo */}
                             <div className="flex items-center justify-between mt-2">
                               <Badge variant="outline" className="text-xs">
-                                {notification.type.replace("_", " ")}
+                                {(notification.type || "").replace(/_/g, " ")}
                               </Badge>
                               {!notification.isRead && (
                                 <div className="w-2 h-2 bg-violet-500 rounded-full"></div>

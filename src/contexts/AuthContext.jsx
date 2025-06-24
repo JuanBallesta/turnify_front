@@ -24,90 +24,90 @@ export const AuthProvider = ({ children }) => {
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-  // REGISTRO DE CLIENTE
-  const registerClient = async (userData) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/users`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
-      });
+  // --- CAMBIO CLAVE: ENVOLVEMOS TODAS LAS FUNCIONES EN useCallback ---
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.msg || "No se pudo completar el registro.");
+  const registerClient = useCallback(
+    async (userData) => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/users`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(userData),
+        });
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data.msg || "No se pudo completar el registro.");
+
+        // Llamamos a loginClient, que también debe estar memoizada.
+        // Como loginClient no está en el array de dependencias, no hay problema.
+        return await loginClient(userData.userName, userData.password);
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [API_URL],
+  ); // Depende de API_URL y loginClient, pero es seguro omitir loginClient si también está en useCallback
 
-      const loginResponse = await loginClient(
-        userData.userName,
-        userData.password,
-      );
-      return loginResponse;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const loginClient = useCallback(
+    async (userName, password) => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/api/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userName, password }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok)
+          throw new Error(data.msg || "Error al iniciar sesión");
 
-  // LOGIN PARA CLIENTES
-  const loginClient = async (userName, password) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName, password }),
-      });
-
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        throw new Error(data.msg || "Error al iniciar sesión");
+        const clientWithRole = { ...data.client, role: "client" };
+        setUser(clientWithRole);
+        setToken(data.token);
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(clientWithRole));
+        return data;
+      } finally {
+        setIsLoading(false);
       }
-      const clientWithRole = { ...data.client, role: "client" };
+    },
+    [API_URL],
+  );
 
-      setUser(clientWithRole);
-      setToken(data.token);
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(clientWithRole));
+  const loginAdmin = useCallback(
+    async (userName, password) => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/api/admin/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userName, password }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok)
+          throw new Error(
+            data.msg || "Credenciales de administrador inválidas",
+          );
 
-      return data;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // --- LOGIN PARA USUARIOS (ADMIN/EMPLEADO/SUPERUSER) ---
-  const loginAdmin = async (userName, password) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/admin/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName, password }),
-      });
-
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        throw new Error(data.msg || "Credenciales de administrador inválidas");
+        setUser(data.user);
+        setToken(data.token);
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        return data;
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [API_URL],
+  );
 
-      setUser(data.user);
-      setToken(data.token);
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-
-      return data;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     setToken(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-  };
+  }, []); // Sin dependencias
 
   const updateUser = useCallback((newUserData) => {
     setUser((prevUser) => {
@@ -115,32 +115,35 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("user", JSON.stringify(updatedUser));
       return updatedUser;
     });
-  }, []);
+  }, []); // Sin dependencias
 
-  const changePassword = async (currentPassword, newPassword) => {
-    // El 'user' ya está disponible en el scope del contexto
-    if (!user || !user.role) {
-      throw new Error("No hay un usuario o rol definido para esta acción.");
-    }
+  const changePassword = useCallback(
+    async (currentPassword, newPassword) => {
+      if (!user)
+        throw new Error(
+          "No hay un usuario autenticado para realizar esta acción.",
+        );
+      setIsLoading(true);
+      try {
+        const response = await changeUserPassword(
+          { currentPassword, newPassword },
+          user.role,
+        );
+        return response;
+      } catch (error) {
+        const errorMessage =
+          error.response?.data?.msg ||
+          "Error desconocido al cambiar la contraseña.";
+        throw new Error(errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user],
+  ); // Depende del 'user' actual
 
-    setIsLoading(true);
-    try {
-      // Pasamos el rol del usuario al servicio para que elija la ruta correcta
-      const response = await changeUserPassword(
-        { currentPassword, newPassword },
-        user.role, // ej: 'client', 'superuser', etc.
-      );
-
-      return response;
-    } catch (error) {
-      const errorMessage =
-        error.response?.data?.msg || "Error al cambiar la contraseña.";
-      throw new Error(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Ahora, como todas las funciones son estables, el 'useMemo' solo se recalculará
+  // cuando cambien 'user', 'token', o 'isLoading'.
   const value = useMemo(
     () => ({
       user,
@@ -152,9 +155,19 @@ export const AuthProvider = ({ children }) => {
       registerClient,
       logout,
       updateUser,
-      changePassword, // <-- Exponemos la función
+      changePassword,
     }),
-    [user, token, isLoading, updateUser],
+    [
+      user,
+      token,
+      isLoading,
+      loginClient,
+      loginAdmin,
+      registerClient,
+      logout,
+      updateUser,
+      changePassword,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
