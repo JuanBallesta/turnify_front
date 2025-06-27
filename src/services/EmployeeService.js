@@ -1,6 +1,23 @@
 import apiClient from "./api";
 
 /**
+ * @param {object} employeeData - Los datos del empleado a crear.
+ */
+
+export const createEmployee = async (employeeData) => {
+  try {
+    const response = await apiClient.post("/api/register", employeeData);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error al crear empleado:",
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+};
+
+/**
  * @param {string|number} [businessId] - El ID del negocio para filtrar los empleados (opcional).
  */
 export const getEmployees = async (businessId) => {
@@ -31,23 +48,6 @@ export const deleteEmployee = async (employeeId) => {
   } catch (error) {
     console.error(
       `Error al eliminar empleado ${employeeId}:`,
-      error.response?.data || error.message,
-    );
-    throw error;
-  }
-};
-
-/**
- * Crea un nuevo empleado.
- * @param {object} employeeData - Los datos del empleado a crear.
- */
-export const createEmployee = async (employeeData) => {
-  try {
-    const response = await apiClient.post("/employees", employeeData);
-    return response.data;
-  } catch (error) {
-    console.error(
-      "Error al crear empleado:",
       error.response?.data || error.message,
     );
     throw error;

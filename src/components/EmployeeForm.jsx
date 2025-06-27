@@ -19,6 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+
+// Importamos las funciones de validación y los iconos
+import { validatePassword, getPasswordStrength } from "@/lib/validators";
+import { Check, X } from "lucide-react";
 
 import { createEmployee, updateEmployee } from "@/services/EmployeeService";
 import { getBusinesses } from "@/services/BusinessService";
@@ -53,36 +58,30 @@ export default function EmployeeForm({
   const isEditing = !!employee;
   const isSuperUser = currentUser?.role === "superuser";
 
-  // Este useEffect unificado controla todo el flujo de carga e inicialización
-  // para evitar condiciones de carrera (race conditions).
-  useEffect(() => {
-    // Si el modal no está abierto, no hacemos nada.
-    if (!open) {
-      return;
-    }
+  const passwordValidationResult = validatePassword(formData.password);
+  const passwordStrength = getPasswordStrength(
+    passwordValidationResult.requirements,
+  );
 
+  useEffect(() => {
+    if (!open) return;
     const loadAndInitialize = async () => {
       setIsLoadingData(true);
       setErrors({});
       try {
-        // 1. PRIMERO, cargamos siempre los datos necesarios para los Selects.
         const [businessesData, userTypesData] = await Promise.all([
           getBusinesses(),
           getUserTypes(),
         ]);
-
         setBusinesses(businessesData);
-        if (!isSuperUser) {
+        if (!isSuperUser)
           setUserTypes(
             userTypesData.filter(
               (type) => type.name.toLowerCase() !== "super usuario",
             ),
           );
-        } else {
-          setUserTypes(userTypesData);
-        }
+        else setUserTypes(userTypesData);
 
-        // 2. SEGUNDO, una vez que tenemos los datos, inicializamos el formulario.
         if (isEditing) {
           setFormData({
             name: employee.name || "",
@@ -121,13 +120,11 @@ export default function EmployeeForm({
         setIsLoadingData(false);
       }
     };
-
     loadAndInitialize();
   }, [open, employee, currentUser, isEditing, isSuperUser]);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
   const handleSubmit = async (e) => {
@@ -143,8 +140,11 @@ export default function EmployeeForm({
       if (!formData.username.trim())
         newErrors.username = "El nombre de usuario es requerido.";
       if (!formData.email.trim()) newErrors.email = "El correo es requerido.";
-      if (!formData.password)
-        newErrors.password = "La contraseña es requerida.";
+
+      const passwordValidation = validatePassword(formData.password);
+      if (!passwordValidation.isValid) {
+        newErrors.password = passwordValidation.errors[0];
+      }
     }
     if (!formData.businessId)
       newErrors.businessId = "Debe seleccionar un negocio.";
@@ -173,21 +173,20 @@ export default function EmployeeForm({
     }
 
     try {
-      if (isEditing) {
-        await updateEmployee(employee.id, dataToSend);
-      } else {
-        await createEmployee(dataToSend);
-      }
+      if (isEditing) await updateEmployee(employee.id, dataToSend);
+      else await createEmployee(dataToSend);
       onSuccess();
       onOpenChange(false);
     } catch (error) {
       const errorData = error.response?.data;
+
+      // Esta condición ahora funcionará, porque el backend enviará el array 'errors'
       if (errorData && Array.isArray(errorData.errors)) {
         const backendErrors = errorData.errors.reduce((acc, err) => {
-          acc[err.path] = err.msg;
+          acc[err.path] = err.msg; // ej: acc['username'] = 'Este nombre de usuario ya está en uso.'
           return acc;
         }, {});
-        setErrors(backendErrors);
+        setErrors(backendErrors); // ¡Esto mostrará el error debajo del campo correcto!
       } else {
         alert(errorData?.msg || "No se pudo guardar el empleado.");
       }
@@ -215,9 +214,7 @@ export default function EmployeeForm({
         </DialogHeader>
 
         {isLoadingData ? (
-          <div className="py-24 text-center text-gray-500">
-            Cargando datos del formulario...
-          </div>
+          <div className="py-24 text-center text-gray-500">Cargando...</div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6 pt-4">
             <div className="grid gap-4">
@@ -310,6 +307,77 @@ export default function EmployeeForm({
                       <p className="text-sm text-red-500">{errors.password}</p>
                     )}
                   </div>
+
+                  {!isEditing && formData.password && (
+                    <div className="space-y-2 p-3 border rounded-md bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600">
+                          Fortaleza:
+                        </span>
+                        <span
+                          className={`text-xs font-medium ${passwordStrength.color.replace("bg-", "text-")}`}
+                        >
+                          {passwordStrength.label}
+                        </span>
+                      </div>
+                      <Progress
+                        value={passwordStrength.strength}
+                        className={`h-1.5 ${passwordStrength.color}`}
+                      />
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2">
+                        <div
+                          className={`flex items-center space-x-1 ${passwordValidationResult.requirements.length ? "text-green-600" : "text-gray-500"}`}
+                        >
+                          {passwordValidationResult.requirements.length ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <X className="w-3 h-3" />
+                          )}
+                          <span>8+ caracteres</span>
+                        </div>
+                        <div
+                          className={`flex items-center space-x-1 ${passwordValidationResult.requirements.uppercase ? "text-green-600" : "text-gray-500"}`}
+                        >
+                          {passwordValidationResult.requirements.uppercase ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <X className="w-3 h-3" />
+                          )}
+                          <span>Mayúscula</span>
+                        </div>
+                        <div
+                          className={`flex items-center space-x-1 ${passwordValidationResult.requirements.lowercase ? "text-green-600" : "text-gray-500"}`}
+                        >
+                          {passwordValidationResult.requirements.lowercase ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <X className="w-3 h-3" />
+                          )}
+                          <span>Minúscula</span>
+                        </div>
+                        <div
+                          className={`flex items-center space-x-1 ${passwordValidationResult.requirements.number ? "text-green-600" : "text-gray-500"}`}
+                        >
+                          {passwordValidationResult.requirements.number ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <X className="w-3 h-3" />
+                          )}
+                          <span>Número</span>
+                        </div>
+                        <div
+                          className={`flex items-center space-x-1 ${passwordValidationResult.requirements.special ? "text-green-600" : "text-gray-500"}`}
+                        >
+                          {passwordValidationResult.requirements.special ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <X className="w-3 h-3" />
+                          )}
+                          <span>Carácter especial</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="p-4 bg-gray-50 rounded-lg border">
@@ -357,8 +425,7 @@ export default function EmployeeForm({
                 )}
                 {!isSuperUser && isEditing && (
                   <p className="text-xs text-gray-500">
-                    Solo un Super Usuario puede cambiar el negocio de un
-                    empleado.
+                    Solo un Super Usuario puede cambiar el negocio.
                   </p>
                 )}
                 {errors.businessId && (

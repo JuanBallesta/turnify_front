@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useApp } from "@/contexts/AppContext";
-import apiClient from "@/services/api"; // Importamos apiClient para las llamadas directas
+import apiClient from "@/services/api";
+
+// Importamos las funciones de validación centralizadas
+import { validatePassword, getPasswordStrength } from "@/lib/validators";
 
 // UI Components
 import { PageHeader } from "@/components/ui/page-header";
@@ -27,6 +30,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { ProfileStats } from "@/components/ui/profile-stats";
@@ -35,12 +39,10 @@ import { Textarea } from "@/components/ui/textarea";
 
 // Icons
 import {
-  FiUser,
   FiEdit3,
   FiLock,
   FiMail,
   FiPhone,
-  FiCalendar,
   FiSave,
   FiEye,
   FiEyeOff,
@@ -71,7 +73,6 @@ const Profile = () => {
   const [profileSuccess, setProfileSuccess] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Estados de cambio de contraseña
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -86,6 +87,12 @@ const Profile = () => {
     confirm: false,
   });
 
+  // Usamos las funciones de validación importadas para derivar el estado
+  const passwordValidationResult = validatePassword(passwordData.newPassword);
+  const passwordStrength = getPasswordStrength(
+    passwordValidationResult.requirements,
+  );
+
   useEffect(() => {
     if (user) {
       setProfileData({
@@ -97,114 +104,31 @@ const Profile = () => {
     }
   }, [user]);
 
-  const validatePassword = (password) => {
-    const requirements = {
-      length: password.length >= 8,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      number: /\d/.test(password),
-      special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
-    };
-    return requirements;
-  };
-
-  const getPasswordStrength = (password) => {
-    if (!password) return { strength: 0, color: "bg-gray-200", label: "" };
-    const requirements = validatePassword(password);
-    const score = Object.values(requirements).filter(Boolean).length;
-    if (score <= 2)
-      return { strength: 25, color: "bg-red-500", label: "Débil" };
-    if (score <= 3)
-      return { strength: 50, color: "bg-orange-500", label: "Regular" };
-    if (score <= 4)
-      return { strength: 75, color: "bg-yellow-500", label: "Buena" };
-    return { strength: 100, color: "bg-green-500", label: "Excelente" };
-  };
-
-  const passwordStrength = getPasswordStrength(passwordData.newPassword);
-  const passwordRequirements = validatePassword(passwordData.newPassword);
-
-  const handlePasswordChange = (field, value) => {
-    setPasswordData((prev) => ({ ...prev, [field]: value }));
-    if (passwordErrors[field] || passwordErrors.general) {
-      setPasswordErrors({});
-    }
-  };
-
-  const handleChangePassword = async () => {
-    setPasswordErrors({});
-    setPasswordSuccess("");
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordErrors({ confirmPassword: "Las contraseñas no coinciden." });
-      return;
-    }
-    try {
-      await changePassword(
-        passwordData.currentPassword,
-        passwordData.newPassword,
-      );
-      setPasswordSuccess("Contraseña cambiada exitosamente");
-      setPasswordData({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
-      setTimeout(() => {
-        setShowPasswordDialog(false);
-        setPasswordSuccess("");
-      }, 2000);
-    } catch (error) {
-      setPasswordErrors({ general: error.message });
-    }
-  };
-
-  const getRoleLabel = (role) => {
-    const roles = {
-      client: "Cliente",
-      employee: "Empleado",
-      administrator: "Administrador",
-      superuser: "Super Usuario",
-    };
-    return roles[role] || role;
-  };
-
-  const getRoleBadgeVariant = (role) => {
-    const variants = {
-      client: "secondary",
-      employee: "default",
-      administrator: "primary",
-      superuser: "default",
-    };
-    return variants[role] || "secondary";
-  };
-
-  const togglePasswordVisibility = (field) => {
-    setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }));
-  };
-
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
     setProfileData((prev) => ({ ...prev, [name]: value }));
+    if (profileErrors[name]) {
+      setProfileErrors((prev) => ({ ...prev, [name]: "" }));
+    }
   };
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
-    setProfileErrors({});
     setProfileSuccess("");
+    setProfileErrors({});
     try {
-      if (!user || !user.id) throw new Error("Usuario no encontrado");
+      if (!user || !user.id) throw new Error("Usuario no autenticado.");
 
+      // Se usa apiClient para consistencia y manejo automático de tokens
       const endpoint =
         user.role === "client" ? `/users/${user.id}` : `/employees/${user.id}`;
       const response = await apiClient.put(endpoint, profileData);
 
-      console.log("Respuesta de la API al actualizar perfil:", response.data);
-      console.log(
-        "Objeto de usuario que se pasará a updateUser:",
-        response.data.data,
-      );
+      const updatedUserData = response.data.user || response.data.data;
+      if (updatedUserData) {
+        updateUser(updatedUserData);
+      }
 
-      updateUser(response.data.data);
       setProfileSuccess("Perfil actualizado exitosamente");
       setIsEditing(false);
       setTimeout(() => setProfileSuccess(""), 3000);
@@ -231,12 +155,71 @@ const Profile = () => {
     setIsEditing(false);
   };
 
+  const handlePasswordChange = (field, value) => {
+    setPasswordData((prev) => ({ ...prev, [field]: value }));
+    if (passwordErrors[field])
+      setPasswordErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  const validateAndSubmitPassword = async () => {
+    setPasswordErrors({});
+    const errors = {};
+    if (!passwordData.currentPassword)
+      errors.currentPassword = "La contraseña actual es requerida.";
+
+    const newPassValidation = validatePassword(passwordData.newPassword);
+    if (!newPassValidation.isValid) {
+      errors.newPassword = newPassValidation.errors[0];
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      errors.confirmPassword = "Las contraseñas no coinciden.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors);
+      return;
+    }
+
+    try {
+      await changePassword(
+        passwordData.currentPassword,
+        passwordData.newPassword,
+      );
+      setPasswordSuccess("Contraseña cambiada exitosamente");
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setTimeout(() => {
+        setPasswordSuccess("");
+        setShowPasswordDialog(false);
+      }, 2000);
+    } catch (error) {
+      setPasswordErrors({ general: error.message });
+    }
+  };
+
+  const togglePasswordVisibility = (field) =>
+    setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }));
+  const getRoleLabel = (role) =>
+    ({
+      client: "Cliente",
+      employee: "Empleado",
+      administrator: "Administrador",
+      superuser: "Super Usuario",
+    })[role] || role;
+  const getRoleBadgeVariant = (role) =>
+    ({
+      client: "secondary",
+      employee: "default",
+      administrator: "primary",
+      superuser: "default",
+    })[role] || "secondary";
+
   if (!user) {
-    return (
-      <div className="p-6">
-        <PageHeader title="Cargando Perfil..." />
-      </div>
-    );
+    return <div className="p-6 text-center">Cargando perfil...</div>;
   }
 
   return (
@@ -244,7 +227,6 @@ const Profile = () => {
       <PageHeader
         title="Mi Perfil"
         description="Gestiona tu información personal y configuración de cuenta"
-        breadcrumbs={[{ label: "Perfil", href: "/profile" }]}
       />
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
@@ -420,9 +402,9 @@ const Profile = () => {
                       <FiLock className="w-5 h-5 text-violet-600" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-900">Contraseña</h4>
+                      <h4 className="font-medium">Contraseña</h4>
                       <p className="text-sm text-gray-600">
-                        Actualiza tu contraseña para mantener la seguridad
+                        Actualiza tu contraseña periódicamente
                       </p>
                     </div>
                   </div>
@@ -440,9 +422,7 @@ const Profile = () => {
                       <FiShield className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-900">
-                        Verificación en Dos Pasos
-                      </h4>
+                      <h4 className="font-medium">Verificación en Dos Pasos</h4>
                       <p className="text-sm text-gray-600">
                         Próximamente disponible
                       </p>
@@ -468,9 +448,7 @@ const Profile = () => {
             <CardContent>
               <div className="text-center py-12">
                 <FiSettings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Próximamente
-                </h3>
+                <h3 className="text-lg font-semibold">Próximamente</h3>
                 <p className="text-gray-600">
                   Las preferencias de usuario estarán disponibles en una próxima
                   actualización.
@@ -486,7 +464,7 @@ const Profile = () => {
           <DialogHeader>
             <DialogTitle>Cambiar Contraseña</DialogTitle>
             <DialogDescription>
-              Actualiza tu contraseña para mantener tu cuenta segura
+              Usa una contraseña segura para proteger tu cuenta
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
@@ -516,18 +494,13 @@ const Profile = () => {
                     onChange={(e) =>
                       handlePasswordChange("currentPassword", e.target.value)
                     }
-                    placeholder="Tu contraseña actual"
                   />
                   <button
                     type="button"
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                     onClick={() => togglePasswordVisibility("current")}
                   >
-                    {showPasswords.current ? (
-                      <FiEyeOff className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <FiEye className="h-5 w-5 text-gray-400" />
-                    )}
+                    {showPasswords.current ? <FiEyeOff /> : <FiEye />}
                   </button>
                 </div>
               </FormField>
@@ -545,21 +518,17 @@ const Profile = () => {
                     onChange={(e) =>
                       handlePasswordChange("newPassword", e.target.value)
                     }
-                    placeholder="Tu nueva contraseña"
                   />
                   <button
                     type="button"
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                     onClick={() => togglePasswordVisibility("new")}
                   >
-                    {showPasswords.new ? (
-                      <FiEyeOff className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <FiEye className="h-5 w-5 text-gray-400" />
-                    )}
+                    {showPasswords.new ? <FiEyeOff /> : <FiEye />}
                   </button>
                 </div>
               </FormField>
+
               {passwordData.newPassword && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -570,12 +539,15 @@ const Profile = () => {
                       {passwordStrength.label}
                     </span>
                   </div>
-                  <Progress value={passwordStrength.strength} className="h-2" />
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                  <Progress
+                    value={passwordStrength.strength}
+                    className={`h-2 ${passwordStrength.color}`}
+                  />
+                  <div className="grid grid-cols-2 gap-2 text-xs mt-2">
                     <div
-                      className={`flex items-center space-x-1 ${passwordRequirements.length ? "text-green-600" : "text-gray-400"}`}
+                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.length ? "text-green-600" : "text-gray-500"}`}
                     >
-                      {passwordRequirements.length ? (
+                      {passwordValidationResult.requirements.length ? (
                         <FiCheck className="w-3 h-3" />
                       ) : (
                         <FiX className="w-3 h-3" />
@@ -583,9 +555,9 @@ const Profile = () => {
                       <span>8+ caracteres</span>
                     </div>
                     <div
-                      className={`flex items-center space-x-1 ${passwordRequirements.uppercase ? "text-green-600" : "text-gray-400"}`}
+                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.uppercase ? "text-green-600" : "text-gray-500"}`}
                     >
-                      {passwordRequirements.uppercase ? (
+                      {passwordValidationResult.requirements.uppercase ? (
                         <FiCheck className="w-3 h-3" />
                       ) : (
                         <FiX className="w-3 h-3" />
@@ -593,9 +565,9 @@ const Profile = () => {
                       <span>Mayúscula</span>
                     </div>
                     <div
-                      className={`flex items-center space-x-1 ${passwordRequirements.lowercase ? "text-green-600" : "text-gray-400"}`}
+                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.lowercase ? "text-green-600" : "text-gray-500"}`}
                     >
-                      {passwordRequirements.lowercase ? (
+                      {passwordValidationResult.requirements.lowercase ? (
                         <FiCheck className="w-3 h-3" />
                       ) : (
                         <FiX className="w-3 h-3" />
@@ -603,18 +575,29 @@ const Profile = () => {
                       <span>Minúscula</span>
                     </div>
                     <div
-                      className={`flex items-center space-x-1 ${passwordRequirements.number ? "text-green-600" : "text-gray-400"}`}
+                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.number ? "text-green-600" : "text-gray-500"}`}
                     >
-                      {passwordRequirements.number ? (
+                      {passwordValidationResult.requirements.number ? (
                         <FiCheck className="w-3 h-3" />
                       ) : (
                         <FiX className="w-3 h-3" />
                       )}
                       <span>Número</span>
                     </div>
+                    <div
+                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.special ? "text-green-600" : "text-gray-500"}`}
+                    >
+                      {passwordValidationResult.requirements.special ? (
+                        <FiCheck className="w-3 h-3" />
+                      ) : (
+                        <FiX className="w-3 h-3" />
+                      )}
+                      <span>Carácter especial</span>
+                    </div>
                   </div>
                 </div>
               )}
+
               <FormField
                 label="Confirmar Nueva Contraseña"
                 htmlFor="confirmPassword"
@@ -629,45 +612,37 @@ const Profile = () => {
                     onChange={(e) =>
                       handlePasswordChange("confirmPassword", e.target.value)
                     }
-                    placeholder="Confirma tu nueva contraseña"
                   />
                   <button
                     type="button"
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                     onClick={() => togglePasswordVisibility("confirm")}
                   >
-                    {showPasswords.confirm ? (
-                      <FiEyeOff className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <FiEye className="h-5 w-5 text-gray-400" />
-                    )}
+                    {showPasswords.confirm ? <FiEyeOff /> : <FiEye />}
                   </button>
                 </div>
               </FormField>
             </div>
-            <div className="flex space-x-3 pt-4 border-t">
+            <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => setShowPasswordDialog(false)}
-                className="flex-1"
               >
                 Cancelar
               </Button>
               <ActionButton
-                onClick={handleChangePassword}
+                onClick={validateAndSubmitPassword}
                 isLoading={authIsLoading}
                 loadingText="Cambiando..."
                 icon={FiLock}
-                className="flex-1"
               >
                 Cambiar Contraseña
               </ActionButton>
-            </div>
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
     </div>
   );
 };
-
 export default Profile;

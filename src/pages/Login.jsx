@@ -54,7 +54,6 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
-        {/* Header */}
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center w-16 h-16 mx-auto bg-violet-600 rounded-full">
             <span className="text-2xl font-bold text-white">T</span>
@@ -63,7 +62,6 @@ const Login = () => {
           <p className="text-gray-600">Sistema de Gestión de Citas</p>
         </div>
 
-        {/* Login Form */}
         <Card className="shadow-lg">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
@@ -91,7 +89,7 @@ const Login = () => {
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
                     className="pl-10"
-                    placeholder="tu_nombre_de_usuario"
+                    placeholder="Nombre de usuario"
                     disabled={isLoading}
                     autoComplete="username"
                   />
@@ -109,7 +107,7 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 pr-10"
-                    placeholder="Tu contraseña"
+                    placeholder="Contraseña"
                     disabled={isLoading}
                     autoComplete="current-password"
                   />

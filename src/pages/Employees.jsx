@@ -77,11 +77,10 @@ export default function Employees() {
   };
 
   useEffect(() => {
-    // Solo carga los empleados si el objeto 'user' existe
     if (user?.id) {
       loadEmployees();
     }
-  }, [user?.id]); // Dependencia estable que asegura la carga una vez que el usuario está listo
+  }, [user?.id]);
 
   const sortedEmployees = useMemo(() => {
     let sortableItems = [...employees];
@@ -129,7 +128,7 @@ export default function Employees() {
   const handleFormSuccess = () => {
     loadEmployees();
     setIsFormOpen(false);
-    setEditingEmployee(undefined); // Limpiar el empleado en edición
+    setEditingEmployee(undefined);
   };
   const handleNewEmployee = () => {
     setEditingEmployee(undefined);

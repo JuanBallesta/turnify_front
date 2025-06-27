@@ -1,8 +1,8 @@
-// src/pages/Register.jsx
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { validatePassword, getPasswordStrength } from "@/lib/validators";
+import { Progress } from "@/components/ui/progress";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -20,12 +20,13 @@ import { ActionButton } from "@/components/ui/action-button";
 
 // Icons
 import {
-  FiUser,
   FiMail,
   FiPhone,
   FiLock,
   FiEye,
   FiEyeOff,
+  FiCheck,
+  FiX,
 } from "react-icons/fi";
 
 const Register = () => {
@@ -40,30 +41,43 @@ const Register = () => {
   });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const { registerClient, isLoading } = useAuth();
   const navigate = useNavigate();
+  const passwordValidationResult = validatePassword(formData.password);
+  const passwordStrength = getPasswordStrength(
+    passwordValidationResult.requirements,
+  );
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.name) newErrors.name = "El nombre es requerido.";
-    if (!formData.lastName) newErrors.lastName = "El apellido es requerido.";
-    if (!formData.userName)
+    if (!formData.name.trim()) newErrors.name = "El nombre es requerido.";
+    if (!formData.lastName.trim())
+      newErrors.lastName = "El apellido es requerido.";
+    if (!formData.userName.trim())
       newErrors.userName = "El nombre de usuario es requerido.";
-    if (!formData.email) newErrors.email = "El email es requerido.";
+    if (!formData.email.trim()) newErrors.email = "El correo es requerido.";
     else if (!/\S+@\S+\.\S+/.test(formData.email))
-      newErrors.email = "El formato del email es inválido.";
-    if (!formData.phone) newErrors.phone = "El teléfono es requerido.";
-    if (!formData.password) newErrors.password = "La contraseña es requerida.";
-    else if (formData.password.length < 8)
-      newErrors.password = "La contraseña debe tener al menos 8 caracteres.";
-    if (formData.password !== formData.confirmPassword)
+      newErrors.email = "El formato del correo es inválido.";
+    if (!formData.phone.trim()) newErrors.phone = "El teléfono es requerido.";
+
+    const passwordValidation = validatePassword(formData.password);
+    if (!passwordValidation.isValid) {
+      newErrors.password = passwordValidation.errors[0];
+    }
+
+    if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Las contraseñas no coinciden.";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -74,7 +88,6 @@ const Register = () => {
     if (!validateForm()) return;
 
     try {
-      // Preparamos los datos que el backend espera
       const userData = {
         name: formData.name,
         lastName: formData.lastName,
@@ -83,18 +96,28 @@ const Register = () => {
         email: formData.email,
         password: formData.password,
       };
-
       await registerClient(userData);
-      navigate("/dashboard"); // Redirigir al dashboard después del registro y auto-login
+      navigate("/dashboard");
     } catch (err) {
-      setErrors({
-        api: err.message || "Error en el registro. Inténtalo de nuevo.",
-      });
+      const errorData = err.response?.data;
+
+      if (errorData && Array.isArray(errorData.errors)) {
+        // Si el backend envía errores específicos (ej. duplicados)
+        const backendErrors = errorData.errors.reduce((acc, error) => {
+          acc[error.path] = error.msg; // ej: acc['email'] = 'Este correo ya está en uso.'
+          return acc;
+        }, {});
+        setErrors(backendErrors);
+      } else {
+        setErrors({
+          api: err.message || "Error en el registro. Inténtalo de nuevo.",
+        });
+      }
     }
   };
 
   return (
-    <div className="min-h-screen bg-violet-50 flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
@@ -187,44 +210,126 @@ const Register = () => {
                 )}
               </div>
 
+              <div className="space-y-2">
+                <div className="relative">
+                  <Label htmlFor="password">Contraseña *</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={handleChange}
+                    className={errors.password ? "border-red-500" : ""}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 bottom-0 h-9"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <FiEyeOff /> : <FiEye />}
+                  </Button>
+                </div>
+                {errors.password && (
+                  <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+                )}
+              </div>
+
+              {formData.password && (
+                <div className="space-y-2 p-2 border rounded-md">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-600">Fortaleza:</span>
+                    <span
+                      className={`text-xs font-medium ${passwordStrength.color.replace("bg-", "text-")}`}
+                    >
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                  <Progress
+                    value={passwordStrength.strength}
+                    className={`h-1.5 ${passwordStrength.color}`}
+                  />
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2">
+                    <div
+                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.length ? "text-green-600" : "text-gray-500"}`}
+                    >
+                      {passwordValidationResult.requirements.length ? (
+                        <FiCheck className="w-3 h-3" />
+                      ) : (
+                        <FiX className="w-3 h-3" />
+                      )}
+                      <span>8+ caracteres</span>
+                    </div>
+                    <div
+                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.uppercase ? "text-green-600" : "text-gray-500"}`}
+                    >
+                      {passwordValidationResult.requirements.uppercase ? (
+                        <FiCheck className="w-3 h-3" />
+                      ) : (
+                        <FiX className="w-3 h-3" />
+                      )}
+                      <span>Mayúscula</span>
+                    </div>
+                    <div
+                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.lowercase ? "text-green-600" : "text-gray-500"}`}
+                    >
+                      {passwordValidationResult.requirements.lowercase ? (
+                        <FiCheck className="w-3 h-3" />
+                      ) : (
+                        <FiX className="w-3 h-3" />
+                      )}
+                      <span>Minúscula</span>
+                    </div>
+                    <div
+                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.number ? "text-green-600" : "text-gray-500"}`}
+                    >
+                      {passwordValidationResult.requirements.number ? (
+                        <FiCheck className="w-3 h-3" />
+                      ) : (
+                        <FiX className="w-3 h-3" />
+                      )}
+                      <span>Número</span>
+                    </div>
+                    <div
+                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.special ? "text-green-600" : "text-gray-500"}`}
+                    >
+                      {passwordValidationResult.requirements.special ? (
+                        <FiCheck className="w-3 h-3" />
+                      ) : (
+                        <FiX className="w-3 h-3" />
+                      )}
+                      <span>Carácter especial</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="relative">
-                <Label htmlFor="password">Contraseña *</Label>
+                <Label htmlFor="confirmPassword">Confirmar Contraseña *</Label>
                 <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={formData.confirmPassword}
                   onChange={handleChange}
+                  className={errors.confirmPassword ? "border-red-500" : ""}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="absolute right-0 bottom-0 h-9"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  {showPassword ? <FiEyeOff /> : <FiEye />}
+                  {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
                 </Button>
-                {errors.password && (
-                  <p className="text-red-500 text-xs mt-1">{errors.password}</p>
-                )}
               </div>
-
-              <div>
-                <Label htmlFor="confirmPassword">Confirmar Contraseña *</Label>
-                <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                />
-                {errors.confirmPassword && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.confirmPassword}
-                  </p>
-                )}
-              </div>
+              {errors.confirmPassword && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.confirmPassword}
+                </p>
+              )}
 
               <ActionButton
                 type="submit"

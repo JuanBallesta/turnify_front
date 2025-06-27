@@ -5,7 +5,7 @@ import React, {
   useMemo,
   useCallback,
 } from "react";
-
+import apiClient from "@/services/api";
 import { changeUserPassword } from "@/services/AuthService";
 
 const AuthContext = createContext();
@@ -24,31 +24,6 @@ export const AuthProvider = ({ children }) => {
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-  // --- CAMBIO CLAVE: ENVOLVEMOS TODAS LAS FUNCIONES EN useCallback ---
-
-  const registerClient = useCallback(
-    async (userData) => {
-      setIsLoading(true);
-      try {
-        const response = await fetch(`${API_URL}/users`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(userData),
-        });
-        const data = await response.json();
-        if (!response.ok)
-          throw new Error(data.msg || "No se pudo completar el registro.");
-
-        // Llamamos a loginClient, que también debe estar memoizada.
-        // Como loginClient no está en el array de dependencias, no hay problema.
-        return await loginClient(userData.userName, userData.password);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [API_URL],
-  ); // Depende de API_URL y loginClient, pero es seguro omitir loginClient si también está en useCallback
-
   const loginClient = useCallback(
     async (userName, password) => {
       setIsLoading(true);
@@ -59,9 +34,9 @@ export const AuthProvider = ({ children }) => {
           body: JSON.stringify({ userName, password }),
         });
         const data = await response.json();
-        if (!response.ok || !data.ok)
+        if (!response.ok || !data.ok) {
           throw new Error(data.msg || "Error al iniciar sesión");
-
+        }
         const clientWithRole = { ...data.client, role: "client" };
         setUser(clientWithRole);
         setToken(data.token);
@@ -75,6 +50,22 @@ export const AuthProvider = ({ children }) => {
     [API_URL],
   );
 
+  const registerClient = useCallback(
+    async (userData) => {
+      setIsLoading(true);
+      try {
+        await apiClient.post("/users", userData);
+
+        return await loginClient(userData.userName, userData.password);
+      } catch (error) {
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [loginClient],
+  );
+
   const loginAdmin = useCallback(
     async (userName, password) => {
       setIsLoading(true);
@@ -85,11 +76,9 @@ export const AuthProvider = ({ children }) => {
           body: JSON.stringify({ userName, password }),
         });
         const data = await response.json();
-        if (!response.ok || !data.ok)
-          throw new Error(
-            data.msg || "Credenciales de administrador inválidas",
-          );
-
+        if (!response.ok || !data.ok) {
+          throw new Error(data.msg || "Credenciales inválidas");
+        }
         setUser(data.user);
         setToken(data.token);
         localStorage.setItem("token", data.token);
@@ -107,7 +96,7 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-  }, []); // Sin dependencias
+  }, []);
 
   const updateUser = useCallback((newUserData) => {
     setUser((prevUser) => {
@@ -115,14 +104,11 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("user", JSON.stringify(updatedUser));
       return updatedUser;
     });
-  }, []); // Sin dependencias
+  }, []);
 
   const changePassword = useCallback(
     async (currentPassword, newPassword) => {
-      if (!user)
-        throw new Error(
-          "No hay un usuario autenticado para realizar esta acción.",
-        );
+      if (!user) throw new Error("No hay un usuario autenticado.");
       setIsLoading(true);
       try {
         const response = await changeUserPassword(
@@ -132,18 +118,15 @@ export const AuthProvider = ({ children }) => {
         return response;
       } catch (error) {
         const errorMessage =
-          error.response?.data?.msg ||
-          "Error desconocido al cambiar la contraseña.";
+          error.response?.data?.msg || "Error al cambiar la contraseña.";
         throw new Error(errorMessage);
       } finally {
         setIsLoading(false);
       }
     },
     [user],
-  ); // Depende del 'user' actual
+  );
 
-  // Ahora, como todas las funciones son estables, el 'useMemo' solo se recalculará
-  // cuando cambien 'user', 'token', o 'isLoading'.
   const value = useMemo(
     () => ({
       user,

@@ -13,13 +13,9 @@ export const changeUserPassword = async (passwordData, userRole) => {
     // Lógica para elegir el endpoint correcto
     const endpoint =
       userRole === "client"
-        ? "/clients/change-password" // Ruta para clientes
-        : "/employees/change-password"; // Ruta para empleados/admins
+        ? "/clients/change-password"
+        : "/employees/change-password";
 
-    // IMPORTANTE: Asumiendo que tu server.js usa app.use('/api', authRoutes),
-    // el prefijo /api se añadirá automáticamente por el apiClient si lo configuraste así.
-    // Si no, la ruta completa debe ser `/api/clients/change-password`.
-    // Vamos a usar la ruta completa para estar seguros.
     const fullEndpoint = `/api${endpoint}`;
 
     const response = await apiClient.put(fullEndpoint, passwordData);
