@@ -1,9 +1,5 @@
 import apiClient from "./api";
 
-/**
- * @param {object} employeeData - Los datos del empleado a crear.
- */
-
 export const createEmployee = async (employeeData) => {
   try {
     const response = await apiClient.post("/api/register", employeeData);
@@ -17,9 +13,6 @@ export const createEmployee = async (employeeData) => {
   }
 };
 
-/**
- * @param {string|number} [businessId] - El ID del negocio para filtrar los empleados (opcional).
- */
 export const getEmployees = async (businessId) => {
   try {
     let endpoint = "/employees";
@@ -37,10 +30,6 @@ export const getEmployees = async (businessId) => {
   }
 };
 
-/**
- * Elimina un empleado por su ID.
- * @param {string|number} employeeId - El ID del empleado a eliminar.
- */
 export const deleteEmployee = async (employeeId) => {
   try {
     const response = await apiClient.delete(`/employees/${employeeId}`);
@@ -54,11 +43,6 @@ export const deleteEmployee = async (employeeId) => {
   }
 };
 
-/**
- * Actualiza un empleado existente.
- * @param {string|number} employeeId - El ID del empleado.
- * @param {object} employeeData - Los nuevos datos del empleado.
- */
 export const updateEmployee = async (employeeId, employeeData) => {
   try {
     const response = await apiClient.put(

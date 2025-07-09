@@ -325,6 +325,19 @@ const Dashboard = () => {
     return roles[role] || "Usuario Desconocido";
   };
 
+  const getHeaderDescription = () => {
+    const roleLabel = getRoleLabel(user.role);
+
+    if (
+      (user.role === "administrator" || user.role === "employee") &&
+      user.businessName
+    ) {
+      return `${roleLabel} de ${user.businessName}`;
+    }
+
+    return `Panel de control - ${roleLabel}`;
+  };
+
   const renderDashboardByRole = () => {
     const props = {
       user,
@@ -359,7 +372,7 @@ const Dashboard = () => {
     <div className="p-6 space-y-6">
       <PageHeader
         title={`¡Bienvenido, ${user.name}!`}
-        description={`Panel de control - ${getRoleLabel(user.role)}`}
+        description={getHeaderDescription()}
         breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }]}
       />
       {renderDashboardByRole()}

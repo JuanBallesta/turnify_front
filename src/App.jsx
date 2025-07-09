@@ -28,6 +28,7 @@ import TestPage from "@/pages/TestPage";
 import NotificationTest from "@/pages/NotificationTest";
 import Businesses from "./pages/Businesses";
 import Employees from "./pages/Employees";
+import ScheduleManagement from "./pages/ScheduleManagement";
 
 const queryClient = new QueryClient();
 
@@ -115,6 +116,22 @@ const App = () => {
                       >
                         <Layout>
                           <Services />
+                        </Layout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/schedules"
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={[
+                          "employee",
+                          "administrator",
+                          "superuser",
+                        ]}
+                      >
+                        <Layout>
+                          <ScheduleManagement />
                         </Layout>
                       </ProtectedRoute>
                     }

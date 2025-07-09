@@ -258,13 +258,16 @@ export default function Employees() {
                               {employee.lastName}, {employee.name}
                             </div>
                             <div className="text-sm text-gray-500">
-                              @{employee.username}
+                              @{employee.userName}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center text-sm">
                               <Mail className="h-3 w-3 mr-1.5 text-gray-400" />
                               {employee.email}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              +{employee.phone}
                             </div>
                           </TableCell>
                           {user?.role === "superuser" && (
@@ -356,7 +359,6 @@ export default function Employees() {
         </Card>
       </div>
 
-      {/* La prop 'key' fuerza al formulario a reiniciarse completamente cada vez que cambia el empleado a editar */}
       {isFormOpen && (
         <EmployeeForm
           key={editingEmployee ? editingEmployee.id : "new-employee"}

@@ -35,7 +35,6 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
-  // Hooks de notificaciones
   const { unreadCount } = useNotifications();
   useNotificationIntegration();
 
@@ -58,13 +57,16 @@ const Layout = ({ children }) => {
           { icon: FiCalendar, label: "Citas", path: "/appointments" },
         ];
       case "employee":
-        return baseItems;
+        return [
+          ...baseItems,
+          { icon: FiPlus, label: "Horarios", path: "/schedules" },
+        ];
       case "administrator":
         return [
           ...baseItems,
           { icon: FiUsers, label: "Empleados", path: "/employees" },
           { icon: FiGrid, label: "Servicios", path: "/services" },
-          { icon: FiPlus, label: "Programar Cita", path: "/schedule" },
+          { icon: FiPlus, label: "Horarios", path: "/schedules" },
         ];
       case "superuser":
         return [
@@ -98,8 +100,8 @@ const Layout = ({ children }) => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <header className="bg-purple-600 text-white font-bold shadow-sm border-b border-gray-200">
+        <div className=" mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Button
@@ -111,10 +113,9 @@ const Layout = ({ children }) => {
                 <FiMenu className="h-5 w-5" />
               </Button>
               <Link to="/dashboard" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-violet-600 to-violet-800 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">T</span>
+                <div className="text-2xl font-extrabold cursor-pointer">
+                  Turnify
                 </div>
-                <span className="text-xl font-bold text-gray-900">Turnify</span>
               </Link>
             </div>
 
@@ -215,9 +216,7 @@ const Layout = ({ children }) => {
         {/* Main content */}
         <main className="flex-1 lg:ml-0">
           <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              {children}
-            </div>
+            <div className="mx-auto px-8 sm:px-6 lg:px-8">{children}</div>
           </div>
         </main>
       </div>

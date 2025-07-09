@@ -21,18 +21,18 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 
-// Importamos las funciones de validación y los iconos
 import { validatePassword, getPasswordStrength } from "@/lib/validators";
 import { Check, X } from "lucide-react";
 
 import { createEmployee, updateEmployee } from "@/services/EmployeeService";
 import { getBusinesses } from "@/services/BusinessService";
 import { getUserTypes } from "@/services/UserTypeService";
+import { getAllBusinessesForSelect } from "@/services/BusinessService";
 
 const INITIAL_FORM_STATE = {
   name: "",
   lastName: "",
-  username: "",
+  userName: "",
   password: "",
   email: "",
   phone: "",
@@ -64,29 +64,35 @@ export default function EmployeeForm({
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return;
+    }
+
     const loadAndInitialize = async () => {
       setIsLoadingData(true);
       setErrors({});
       try {
         const [businessesData, userTypesData] = await Promise.all([
-          getBusinesses(),
+          getAllBusinessesForSelect(),
           getUserTypes(),
         ]);
+
         setBusinesses(businessesData);
-        if (!isSuperUser)
+        if (!isSuperUser) {
           setUserTypes(
             userTypesData.filter(
               (type) => type.name.toLowerCase() !== "super usuario",
             ),
           );
-        else setUserTypes(userTypesData);
+        } else {
+          setUserTypes(userTypesData);
+        }
 
         if (isEditing) {
           setFormData({
             name: employee.name || "",
             lastName: employee.lastName || "",
-            username: employee.username || "",
+            userName: employee.userName || "",
             password: "",
             email: employee.email || "",
             phone: employee.phone || "",
@@ -120,6 +126,7 @@ export default function EmployeeForm({
         setIsLoadingData(false);
       }
     };
+
     loadAndInitialize();
   }, [open, employee, currentUser, isEditing, isSuperUser]);
 
@@ -137,8 +144,8 @@ export default function EmployeeForm({
       if (!formData.name.trim()) newErrors.name = "El nombre es requerido.";
       if (!formData.lastName.trim())
         newErrors.lastName = "El apellido es requerido.";
-      if (!formData.username.trim())
-        newErrors.username = "El nombre de usuario es requerido.";
+      if (!formData.userName.trim())
+        newErrors.userName = "El nombre de usuario es requerido.";
       if (!formData.email.trim()) newErrors.email = "El correo es requerido.";
 
       const passwordValidation = validatePassword(formData.password);
@@ -180,10 +187,9 @@ export default function EmployeeForm({
     } catch (error) {
       const errorData = error.response?.data;
 
-      // Esta condición ahora funcionará, porque el backend enviará el array 'errors'
       if (errorData && Array.isArray(errorData.errors)) {
         const backendErrors = errorData.errors.reduce((acc, err) => {
-          acc[err.path] = err.msg; // ej: acc['username'] = 'Este nombre de usuario ya está en uso.'
+          acc[err.path] = err.msg; // ej: acc['userName'] = 'Este nombre de usuario ya está en uso.'
           return acc;
         }, {});
         setErrors(backendErrors); // ¡Esto mostrará el error debajo del campo correcto!
@@ -253,17 +259,17 @@ export default function EmployeeForm({
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="username">Nombre de Usuario *</Label>
+                    <Label htmlFor="userName">Nombre de Usuario *</Label>
                     <Input
-                      id="username"
-                      value={formData.username}
+                      id="userName"
+                      value={formData.userName}
                       onChange={(e) =>
-                        handleInputChange("username", e.target.value)
+                        handleInputChange("userName", e.target.value)
                       }
-                      className={errors.username ? "border-red-500" : ""}
+                      className={errors.userName ? "border-red-500" : ""}
                     />
-                    {errors.username && (
-                      <p className="text-sm text-red-500">{errors.username}</p>
+                    {errors.userName && (
+                      <p className="text-sm text-red-500">{errors.userName}</p>
                     )}
                   </div>
                   <div className="space-y-2">

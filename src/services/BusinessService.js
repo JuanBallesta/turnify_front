@@ -1,22 +1,30 @@
 import apiClient from "./api";
 
-export const getBusinesses = async () => {
+export const getBusinesses = async (page = 1, limit = 6) => {
   try {
-    const response = await apiClient.get("/businesses");
+    const response = await apiClient.get(
+      `/businesses?page=${page}&limit=${limit}`,
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error en BusinessService -> getBusinesses:", error);
+    throw error;
+  }
+};
+
+export const getAllBusinessesForSelect = async () => {
+  try {
+    const response = await apiClient.get("/businesses/all");
     return response.data.data || [];
   } catch (error) {
     console.error(
-      "Error al obtener los negocios:",
-      error.response?.data || error.message,
+      "Error en BusinessService -> getAllBusinessesForSelect:",
+      error,
     );
     throw error;
   }
 };
 
-/**
- * Crea un nuevo negocio.
- * @param {object} businessData - Los datos del negocio a crear.
- */
 export const createBusiness = async (businessData) => {
   try {
     const response = await apiClient.post("businesses", businessData);
@@ -30,11 +38,6 @@ export const createBusiness = async (businessData) => {
   }
 };
 
-/**
- * Actualiza un negocio existente por su ID.
- * @param {string} id
- * @param {object} businessData
- */
 export const updateBusiness = async (id, businessData) => {
   try {
     const response = await apiClient.put(`businesses/${id}`, businessData);
@@ -48,10 +51,6 @@ export const updateBusiness = async (id, businessData) => {
   }
 };
 
-/**
- * Elimina un negocio por su ID.
- * @param {string} id - El ID del negocio a eliminar.
- */
 export const deleteBusiness = async (id) => {
   try {
     const response = await apiClient.delete(`businesses/${id}`);
