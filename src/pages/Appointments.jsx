@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useApp } from "@/contexts/AppContext";
+import { useNavigate } from "react-router-dom";
+import { getMyAppointments } from "@/services/AppointmentService";
 
-// UI Components - Import directly from individual files
+// UI Components
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -10,9 +11,10 @@ import { ActionButton } from "@/components/ui/action-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchBox } from "@/components/ui/search-box";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { InfoCard } from "@/components/ui/info-card";
 import { StatsCard } from "@/components/ui/stats-card";
+import { Card, CardContent } from "@/components/ui/card";
 
+// Icons
 import {
   FiCalendar,
   FiClock,
@@ -28,105 +30,109 @@ import {
 
 const Appointments = () => {
   const { user } = useAuth();
-  const { appointments, services } = useApp();
+  const navigate = useNavigate();
+
+  const [appointments, setAppointments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
 
-  // Filter appointments based on user role and search
-  const userAppointments = appointments.filter((apt) => {
-    if (user.role === "client") {
-      return apt.clientId === user.id;
+  useEffect(() => {
+    if (user) {
+      setIsLoading(true);
+      getMyAppointments()
+        .then(setAppointments)
+        .catch(() => setError("No se pudieron cargar las citas."))
+        .finally(() => setIsLoading(false));
     }
-    if (user.role === "employee") {
-      return apt.employeeId === user.id;
-    }
-    return true; // Admin and superuser see all
-  });
+  }, [user]);
 
-  const filteredAppointments = userAppointments.filter((apt) => {
-    const matchesSearch =
-      apt.serviceName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.employeeName?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter((apt) => {
+      const lowerSearch = searchTerm.toLowerCase();
+      const matchesSearch =
+        (apt.offering?.name.toLowerCase() || "").includes(lowerSearch) ||
+        `${apt.client?.name} ${apt.client?.lastName}`
+          .toLowerCase()
+          .includes(lowerSearch) ||
+        `${apt.employee?.name} ${apt.employee?.lastName}`
+          .toLowerCase()
+          .includes(lowerSearch);
 
-    if (activeTab === "all") return matchesSearch;
-    return matchesSearch && apt.status === activeTab;
-  });
+      if (activeTab === "all") return matchesSearch;
+      return matchesSearch && apt.status === activeTab;
+    });
+  }, [appointments, searchTerm, activeTab]);
 
-  // Statistics
-  const stats = {
-    total: userAppointments.length,
-    scheduled: userAppointments.filter((apt) => apt.status === "scheduled")
-      .length,
-    completed: userAppointments.filter((apt) => apt.status === "completed")
-      .length,
-    cancelled: userAppointments.filter((apt) => apt.status === "cancelled")
-      .length,
-  };
+  const stats = useMemo(
+    () => ({
+      total: appointments.length,
+      scheduled: appointments.filter((apt) => apt.status === "scheduled")
+        .length,
+      completed: appointments.filter((apt) => apt.status === "completed")
+        .length,
+      cancelled: appointments.filter((apt) => apt.status === "cancelled")
+        .length,
+    }),
+    [appointments],
+  );
 
-  // Table columns
   const columns = [
     {
-      key: "serviceName",
+      key: "offering.name",
       title: "Servicio",
       render: (value, row) => (
         <div>
           <div className="font-medium">{value}</div>
-          <div className="text-sm text-gray-500">{row.serviceDescription}</div>
+          <div className="text-sm text-gray-500">
+            {row.offering?.description}
+          </div>
         </div>
       ),
     },
     {
-      key: "date",
-      title: "Fecha",
+      key: "startTime",
+      title: "Fecha y Hora",
       render: (value) => (
-        <div className="flex items-center space-x-2">
-          <FiCalendar className="w-4 h-4 text-gray-400" />
-          <span>
-            {new Date(value).toLocaleDateString("es-ES", {
-              weekday: "short",
-              year: "numeric",
-              month: "short",
-              day: "numeric",
+        <div>
+          <div>{new Date(value).toLocaleDateString("es-ES")}</div>
+          <div className="text-sm text-gray-500">
+            {new Date(value).toLocaleTimeString("es-ES", {
+              hour: "2-digit",
+              minute: "2-digit",
             })}
-          </span>
+          </div>
         </div>
       ),
     },
-    {
-      key: "time",
-      title: "Hora",
-      render: (value) => (
-        <div className="flex items-center space-x-2">
-          <FiClock className="w-4 h-4 text-gray-400" />
-          <span>{value}</span>
-        </div>
-      ),
-    },
-    // Show client/employee based on role
-    ...(user.role !== "client"
+    ...(user?.role !== "client"
       ? [
           {
-            key: "clientName",
+            key: "client",
             title: "Cliente",
             render: (value) => (
-              <div className="flex items-center space-x-2">
-                <FiUser className="w-4 h-4 text-gray-400" />
-                <span>{value}</span>
+              <div className="flex items-center">
+                <FiUser className="mr-2 h-4 w-4 text-gray-400" />
+                <span>
+                  {value?.name} {value?.lastName}
+                </span>
               </div>
             ),
           },
         ]
       : []),
-    ...(user.role === "client"
+    ...(user?.role !== "employee"
       ? [
           {
-            key: "employeeName",
+            key: "employee",
             title: "Empleado",
             render: (value) => (
-              <div className="flex items-center space-x-2">
-                <FiUser className="w-4 h-4 text-gray-400" />
-                <span>{value}</span>
+              <div className="flex items-center">
+                <FiUser className="mr-2 h-4 w-4 text-gray-400" />
+                <span>
+                  {value?.name} {value?.lastName}
+                </span>
               </div>
             ),
           },
@@ -140,215 +146,110 @@ const Appointments = () => {
     {
       key: "actions",
       title: "Acciones",
-      render: (value, row) => (
-        <div className="flex space-x-2">
+      render: (_, row) => (
+        <div className="flex space-x-1">
           <ActionButton
             size="sm"
             variant="ghost"
             icon={FiEye}
             tooltip="Ver detalles"
           />
-          {row.status === "scheduled" && (
-            <>
-              <ActionButton
-                size="sm"
-                variant="ghost"
-                icon={FiEdit}
-                tooltip="Editar"
-              />
-              <ActionButton
-                size="sm"
-                variant="ghost"
-                icon={FiX}
-                tooltip="Cancelar"
-              />
-            </>
-          )}
-          {(user.role === "administrator" || user.role === "superuser") && (
-            <ActionButton
-              size="sm"
-              variant="ghost"
-              icon={FiTrash2}
-              tooltip="Eliminar"
-            />
-          )}
         </div>
       ),
     },
   ];
 
-  const tabCounts = {
-    all: stats.total,
-    scheduled: stats.scheduled,
-    completed: stats.completed,
-    cancelled: stats.cancelled,
-  };
+  if (isLoading)
+    return (
+      <>
+        <div>Cargando citas...</div>
+      </>
+    );
+  if (error)
+    return (
+      <>
+        <div>{error}</div>
+      </>
+    );
 
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="Gestión de Citas"
-        description={
-          user.role === "client"
-            ? "Revisa tus citas programadas y historial de servicios"
-            : user.role === "employee"
-              ? "Administra las citas asignadas a ti"
-              : "Gestiona todas las citas del sistema"
-        }
-        breadcrumbs={[{ label: "Citas", href: "/appointments" }]}
-        actions={
-          user.role === "client" ? (
-            <ActionButton
-              icon={FiPlus}
-              onClick={() => (window.location.href = "/book")}
-            >
-              Nueva Cita
-            </ActionButton>
-          ) : user.role === "administrator" || user.role === "superuser" ? (
-            <ActionButton
-              icon={FiPlus}
-              onClick={() => (window.location.href = "/schedule")}
-            >
-              Programar Cita
-            </ActionButton>
-          ) : null
-        }
-      />
-
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="Total de Citas"
-          value={stats.total}
-          description="Todas tus citas"
-          icon={FiCalendar}
-          variant="default"
+    <>
+      <div className="p-6 space-y-6">
+        <PageHeader
+          title="Mis Citas"
+          description="Revisa tus citas programadas y tu historial de servicios"
         />
-        <StatsCard
-          title="Programadas"
-          value={stats.scheduled}
-          description="Próximas citas"
-          icon={FiClock}
-          variant="primary"
-        />
-        <StatsCard
-          title="Completadas"
-          value={stats.completed}
-          description="Servicios terminados"
-          icon={FiCheck}
-          variant="success"
-        />
-        <StatsCard
-          title="Canceladas"
-          value={stats.cancelled}
-          description="Citas canceladas"
-          icon={FiX}
-          variant="danger"
-        />
-      </div>
 
-      {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <SearchBox
-          placeholder="Buscar citas por servicio, cliente o empleado..."
-          value={searchTerm}
-          onValueChange={setSearchTerm}
-          className="w-full sm:w-96"
-        />
-        <ActionButton variant="outline" icon={FiFilter}>
-          Filtros Avanzados
-        </ActionButton>
-      </div>
-
-      {/* Appointments Table with Tabs */}
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="space-y-4"
-      >
-        <TabsList>
-          <TabsTrigger value="all">Todas ({tabCounts.all})</TabsTrigger>
-          <TabsTrigger value="scheduled">
-            Programadas ({tabCounts.scheduled})
-          </TabsTrigger>
-          <TabsTrigger value="completed">
-            Completadas ({tabCounts.completed})
-          </TabsTrigger>
-          <TabsTrigger value="cancelled">
-            Canceladas ({tabCounts.cancelled})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={activeTab}>
-          {filteredAppointments.length > 0 ? (
-            <DataTable
-              columns={columns}
-              data={filteredAppointments}
-              onRowClick={(row) => console.log("Ver detalles de:", row)}
-            />
-          ) : (
-            <EmptyState
-              icon={FiCalendar}
-              title="No se encontraron citas"
-              description={
-                searchTerm
-                  ? "No hay citas que coincidan con tu búsqueda. Intenta con otros términos."
-                  : activeTab === "all"
-                    ? "Aún no tienes citas registradas. ¡Programa tu primera cita!"
-                    : `No tienes citas con estado "${activeTab}".`
-              }
-              action={
-                user.role === "client" ? "Reservar Primera Cita" : undefined
-              }
-              onAction={
-                user.role === "client"
-                  ? () => (window.location.href = "/book")
-                  : undefined
-              }
-            />
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Quick Actions */}
-      {user.role === "client" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <InfoCard
-            title="Reservar Nueva Cita"
-            description="Programa tu próximo servicio"
-            actions={
-              <ActionButton
-                icon={FiPlus}
-                onClick={() => (window.location.href = "/book")}
-              >
-                Reservar
-              </ActionButton>
-            }
-            variant="compact"
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatsCard
+            title="Total de Citas"
+            value={stats.total}
+            icon={FiCalendar}
           />
-          <InfoCard
-            title="Historial Completo"
-            description="Ve todos tus servicios anteriores"
-            actions={
-              <ActionButton variant="outline" icon={FiEye}>
-                Ver Historial
-              </ActionButton>
-            }
-            variant="compact"
+          <StatsCard
+            title="Programadas"
+            value={stats.scheduled}
+            icon={FiClock}
+            variant="primary"
           />
-          <InfoCard
-            title="Preferencias"
-            description="Configura tus servicios favoritos"
-            actions={
-              <ActionButton variant="outline" icon={FiEdit}>
-                Configurar
-              </ActionButton>
-            }
-            variant="compact"
+          <StatsCard
+            title="Completadas"
+            value={stats.completed}
+            icon={FiCheck}
+            variant="success"
+          />
+          <StatsCard
+            title="Canceladas"
+            value={stats.cancelled}
+            icon={FiX}
+            variant="danger"
           />
         </div>
-      )}
-    </div>
+
+        <div className="flex justify-between items-center">
+          <SearchBox
+            placeholder="Buscar citas..."
+            value={searchTerm}
+            onValueChange={setSearchTerm}
+            className="w-full sm:w-96"
+          />
+        </div>
+
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-4"
+        >
+          <TabsList>
+            <TabsTrigger value="all">Todas ({stats.total})</TabsTrigger>
+            <TabsTrigger value="scheduled">
+              Programadas ({stats.scheduled})
+            </TabsTrigger>
+            <TabsTrigger value="completed">
+              Completadas ({stats.completed})
+            </TabsTrigger>
+            <TabsTrigger value="cancelled">
+              Canceladas ({stats.cancelled})
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value={activeTab}>
+            <Card>
+              <CardContent className="pt-6">
+                {filteredAppointments.length > 0 ? (
+                  <DataTable columns={columns} data={filteredAppointments} />
+                ) : (
+                  <EmptyState
+                    icon={FiCalendar}
+                    title="No se encontraron citas"
+                    description="No hay citas que coincidan con los filtros actuales."
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </>
   );
 };
 

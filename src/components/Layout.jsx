@@ -60,12 +60,14 @@ const Layout = ({ children }) => {
         return [
           ...baseItems,
           { icon: FiPlus, label: "Horarios", path: "/schedules" },
+          { icon: FiCalendar, label: "Citas", path: "/appointments" },
         ];
       case "administrator":
         return [
           ...baseItems,
           { icon: FiUsers, label: "Empleados", path: "/employees" },
           { icon: FiGrid, label: "Servicios", path: "/services" },
+          { icon: FiCalendar, label: "Citas", path: "/appointments" },
           { icon: FiPlus, label: "Horarios", path: "/schedules" },
         ];
       case "superuser":

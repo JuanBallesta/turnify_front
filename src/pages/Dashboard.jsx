@@ -1,7 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useApp } from "@/contexts/AppContext";
 import { Link } from "react-router-dom";
+import { getDashboardData } from "@/services/DashboardService";
 
 // UI Components
 import { PageHeader } from "@/components/ui/page-header";
@@ -26,43 +26,48 @@ import {
   FiEdit,
   FiUser,
   FiCheck,
+  FiX,
+  FiSettings, // <-- IMPORTACIÓN AÑADIDA
 } from "react-icons/fi";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 // --- Sub-componente para el Dashboard de Cliente ---
 const ClientDashboard = ({
-  user,
-  userAppointments,
-  todayAppointments,
-  monthlyAppointments,
-  completedAppointments,
-  services,
+  stats,
+  servicesCount,
+  upcomingAppointments,
+  InfoCard,
+  ActionButton,
+  Link,
 }) => (
   <div className="space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <StatsCard
         title="Citas Este Mes"
-        value={monthlyAppointments.length}
+        value={stats.monthly}
         description="Total de citas programadas"
         icon={FiCalendar}
         variant="primary"
       />
       <StatsCard
         title="Citas Hoy"
-        value={todayAppointments.length}
+        value={stats.today}
         description="Citas programadas para hoy"
         icon={FiClock}
         variant="default"
       />
       <StatsCard
         title="Completadas"
-        value={completedAppointments.length}
+        value={stats.completed}
         description="Servicios terminados"
         icon={FiCheck}
         variant="success"
       />
       <StatsCard
         title="Servicios Disponibles"
-        value={services.length}
+        value={servicesCount}
         description="Servicios que puedes reservar"
         icon={FiTrendingUp}
         variant="default"
@@ -71,7 +76,7 @@ const ClientDashboard = ({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <InfoCard
         title="Reservar Nueva Cita"
-        description="Programa tu próximo servicio de belleza"
+        description="Programa tu próximo servicio"
         actions={
           <Link to="/book">
             <ActionButton icon={FiPlus}>Reservar Ahora</ActionButton>
@@ -81,7 +86,7 @@ const ClientDashboard = ({
       />
       <InfoCard
         title="Mis Citas"
-        description="Revisa tus citas programadas y historial"
+        description="Revisa tus citas y tu historial"
         actions={
           <Link to="/appointments">
             <ActionButton variant="outline" icon={FiCalendar}>
@@ -103,9 +108,7 @@ const ClientDashboard = ({
       />
     </div>
     <UpcomingAppointments
-      appointments={userAppointments.filter(
-        (apt) => apt.status === "scheduled",
-      )}
+      appointments={upcomingAppointments}
       onViewAll={() => (window.location.href = "/appointments")}
     />
   </div>
@@ -113,60 +116,77 @@ const ClientDashboard = ({
 
 // --- Sub-componente para el Dashboard de Empleado ---
 const EmployeeDashboard = ({
-  userAppointments,
-  todayAppointments,
-  monthlyAppointments,
-  completedAppointments,
+  stats,
+  recentAppointments,
   appointmentColumns,
+  DataTable,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  EmptyState,
+  Button,
+  Link,
 }) => (
   <div className="space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <StatsCard
         title="Citas Hoy"
-        value={todayAppointments.length}
+        value={stats.today}
         description="Servicios programados"
         icon={FiCalendar}
         variant="primary"
       />
       <StatsCard
         title="Este Mes"
-        value={monthlyAppointments.length}
+        value={stats.monthly}
         description="Total de servicios"
         icon={FiTrendingUp}
         variant="default"
       />
       <StatsCard
         title="Completadas"
-        value={completedAppointments.length}
+        value={stats.completed}
         description="Servicios finalizados"
         icon={FiDollarSign}
         variant="success"
       />
       <StatsCard
         title="Clientes Atendidos"
-        value={new Set(completedAppointments.map((apt) => apt.clientId)).size}
-        description="Clientes únicos"
+        value={
+          new Set(
+            recentAppointments
+              .filter((a) => a.status === "completed")
+              .map((a) => a.clientId),
+          ).size
+        }
+        description="Clientes únicos este mes"
         icon={FiUsers}
         variant="default"
       />
     </div>
     <Tabs defaultValue="appointments" className="space-y-4">
       <TabsList>
-        <TabsTrigger value="appointments">Mis Citas</TabsTrigger>
-        <TabsTrigger value="schedule">Horario</TabsTrigger>
+        <TabsTrigger value="appointments">Próximas Citas</TabsTrigger>
+        <TabsTrigger value="schedule">Mi Horario</TabsTrigger>
       </TabsList>
       <TabsContent value="appointments">
         <DataTable
           columns={appointmentColumns}
-          data={userAppointments.slice(0, 10)}
-          emptyMessage="No tienes citas asignadas"
+          data={recentAppointments}
+          emptyMessage="No tienes citas asignadas próximamente"
         />
       </TabsContent>
       <TabsContent value="schedule">
         <EmptyState
           icon={FiClock}
           title="Gestión de Horarios"
-          description="Pronto podrás configurar tu disponibilidad y horarios de trabajo."
+          description="Define tu disponibilidad para que los clientes puedan reservar contigo."
+          action={
+            <Link to="/schedules">
+              <Button>Ir a Mi Horario</Button>
+            </Link>
+          }
         />
       </TabsContent>
     </Tabs>
@@ -174,55 +194,65 @@ const EmployeeDashboard = ({
 );
 
 // --- Sub-componente para el Dashboard de Administrador/Superusuario ---
-const AdminDashboard = ({ appointments, services, appointmentColumns }) => (
+const AdminDashboard = ({
+  stats,
+  servicesCount,
+  recentAppointments,
+  appointmentColumns,
+  InfoCard,
+  ActionButton,
+  Link,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  DataTable,
+  EmptyState,
+}) => (
   <div className="space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <StatsCard
-        title="Total Citas"
-        value={appointments.length}
-        description="Todas las citas del sistema"
+        title="Total Citas (Mes)"
+        value={stats.monthly}
+        description="Todas las citas del negocio"
         icon={FiCalendar}
         variant="primary"
       />
       <StatsCard
         title="Servicios Activos"
-        value={services.length}
+        value={servicesCount}
         description="Servicios disponibles"
-        icon={FiUsers}
+        icon={FiSettings}
         variant="default"
       />
       <StatsCard
-        title="Ingresos Mes"
+        title="Ingresos (Mes)"
         value="$12,450"
-        description="Ingresos estimados"
+        description="Cálculo no implementado"
         icon={FiDollarSign}
         variant="success"
-        trend="up"
-        trendValue="12%"
       />
       <StatsCard
-        title="Tasa Completadas"
-        value="87%"
-        description="Citas completadas exitosamente"
+        title="Tasa de Ocupación"
+        value="75%"
+        description="Cálculo no implementado"
         icon={FiTrendingUp}
         variant="default"
-        trend="up"
-        trendValue="5%"
       />
     </div>
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <InfoCard
         title="Programar Cita"
-        description="Programa citas para los clientes"
+        description="Agenda nuevas citas para clientes"
         actions={
-          <Link to="/schedule">
+          <Link to="/book">
             <ActionButton icon={FiPlus}>Programar</ActionButton>
           </Link>
         }
       />
       <InfoCard
         title="Gestionar Servicios"
-        description="Administra los servicios disponibles"
+        description="Crea y edita los servicios"
         actions={
           <Link to="/services">
             <ActionButton variant="outline" icon={FiEdit}>
@@ -232,8 +262,8 @@ const AdminDashboard = ({ appointments, services, appointmentColumns }) => (
         }
       />
       <InfoCard
-        title="Empleados"
-        description="Gestiona tu equipo de trabajo"
+        title="Gestionar Empleados"
+        description="Administra tu equipo de trabajo"
         actions={
           <Link to="/employees">
             <ActionButton variant="outline" icon={FiUsers}>
@@ -249,10 +279,7 @@ const AdminDashboard = ({ appointments, services, appointmentColumns }) => (
         <TabsTrigger value="analytics">Análisis</TabsTrigger>
       </TabsList>
       <TabsContent value="recent">
-        <DataTable
-          columns={appointmentColumns}
-          data={appointments.slice(0, 10)}
-        />
+        <DataTable columns={appointmentColumns} data={recentAppointments} />
       </TabsContent>
       <TabsContent value="analytics">
         <EmptyState
@@ -265,55 +292,27 @@ const AdminDashboard = ({ appointments, services, appointmentColumns }) => (
   </div>
 );
 
-// Componente Principal y Lógica de Renderizado
+// --- Componente Principal y Lógica de Datos ---
 const Dashboard = () => {
   const { user } = useAuth();
-  const { appointments, services } = useApp();
+  const [dashboardData, setDashboardData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (user) {
-      console.log("Objeto de usuario en el Dashboard:", user);
-      console.log("Rol del usuario:", user.role);
+      setIsLoading(true);
+      getDashboardData()
+        .then((data) => {
+          setDashboardData(data);
+        })
+        .catch((err) => {
+          console.error("Error fetching dashboard data:", err);
+          setError("No se pudieron cargar los datos del panel.");
+        })
+        .finally(() => setIsLoading(false));
     }
   }, [user]);
-
-  if (!user) {
-    return (
-      <div className="p-6 space-y-6">
-        <PageHeader
-          title="Cargando..."
-          description="Preparando tu panel de control..."
-        />
-      </div>
-    );
-  }
-
-  const today = new Date().toDateString();
-  const thisMonth = new Date().getMonth();
-
-  const getFilteredAppointments = () => {
-    if (user.role === "client") {
-      return appointments.filter((apt) => apt.clientId === user.id);
-    }
-    if (user.role === "employee") {
-      return appointments.filter((apt) => apt.employeeId === user.id);
-    }
-    return appointments;
-  };
-
-  const relevantAppointments = getFilteredAppointments();
-  const todayAppointments = relevantAppointments.filter(
-    (apt) => new Date(apt.date).toDateString() === today,
-  );
-  const monthlyAppointments = relevantAppointments.filter(
-    (apt) => new Date(apt.date).getMonth() === thisMonth,
-  );
-  const completedAppointments = relevantAppointments.filter(
-    (apt) => apt.status === "completed",
-  );
-  const appointmentColumns = [
-    /* ... tu definición de columnas ... */
-  ];
 
   const getRoleLabel = (role) => {
     const roles = {
@@ -322,32 +321,104 @@ const Dashboard = () => {
       administrator: "Administrador",
       superuser: "Super Usuario",
     };
-    return roles[role] || "Usuario Desconocido";
+    return roles[role] || "Usuario";
   };
 
   const getHeaderDescription = () => {
     const roleLabel = getRoleLabel(user.role);
-
     if (
       (user.role === "administrator" || user.role === "employee") &&
       user.businessName
     ) {
       return `${roleLabel} de ${user.businessName}`;
     }
-
     return `Panel de control - ${roleLabel}`;
   };
 
+  const appointmentColumns = [
+    {
+      key: "offering.name",
+      title: "Servicio",
+      render: (_, row) => (
+        <div>
+          <div className="font-medium">
+            {row.offering?.name || "Servicio Eliminado"}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "startTime",
+      title: "Fecha y Hora",
+      render: (value) =>
+        new Date(value).toLocaleString("es-ES", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+    },
+    ...(user?.role !== "client"
+      ? [
+          {
+            key: "client",
+            title: "Cliente",
+            render: (val) => (
+              <span>
+                {val?.name
+                  ? `${val.name} ${val.lastName}`
+                  : "Cliente Eliminado"}
+              </span>
+            ),
+          },
+        ]
+      : []),
+    ...(user?.role === "client" ||
+    user?.role === "administrator" ||
+    user?.role === "superuser"
+      ? [
+          {
+            key: "employee",
+            title: "Empleado",
+            render: (val) => (
+              <span>
+                {val?.name
+                  ? `${val.name} ${val.lastName}`
+                  : "Empleado Eliminado"}
+              </span>
+            ),
+          },
+        ]
+      : []),
+    {
+      key: "status",
+      title: "Estado",
+      render: (value) => <AppointmentStatusBadge status={value} />,
+    },
+  ];
+
   const renderDashboardByRole = () => {
+    if (!dashboardData)
+      return <EmptyState title="No hay datos para mostrar." />;
+
     const props = {
       user,
-      appointments,
-      services,
+      stats: dashboardData.stats,
+      servicesCount: dashboardData.additionalData?.services || 0,
+      recentAppointments: dashboardData.recentAppointments,
+      upcomingAppointments: dashboardData.upcomingAppointments,
       appointmentColumns,
-      todayAppointments,
-      monthlyAppointments,
-      completedAppointments,
-      userAppointments: relevantAppointments,
+      InfoCard,
+      ActionButton,
+      DataTable,
+      Tabs,
+      TabsList,
+      TabsTrigger,
+      TabsContent,
+      EmptyState,
+      Button,
+      Link,
     };
 
     switch (user.role) {
@@ -359,24 +430,66 @@ const Dashboard = () => {
       case "superuser":
         return <AdminDashboard {...props} />;
       default:
-        return (
-          <EmptyState
-            title="Rol Desconocido"
-            description={`Rol recibido: '${user.role}'. No se puede mostrar un panel.`}
-          />
-        );
+        return <EmptyState title="Rol Desconocido" />;
     }
   };
 
+  if (isLoading || !user) {
+    return (
+      <>
+        <div className="p-6">
+          <PageHeader title="Cargando..." />
+        </div>
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <>
+        <div className="p-6">
+          <PageHeader title="Error" description={error} />
+        </div>
+      </>
+    );
+  }
+
+  const AppointmentStatusBadge = ({ status }) => {
+    const statusInfo = {
+      scheduled: {
+        label: "Programada",
+        className: "bg-blue-100 text-blue-800",
+      },
+      completed: {
+        label: "Completada",
+        className: "bg-green-100 text-green-800",
+      },
+      cancelled: { label: "Cancelada", className: "bg-red-100 text-red-800" },
+    };
+
+    const currentStatus = statusInfo[status] || {
+      label: status,
+      className: "bg-gray-100 text-gray-800",
+    };
+
+    return (
+      <Badge className={cn("font-medium", currentStatus.className)}>
+        {currentStatus.label}
+      </Badge>
+    );
+  };
+
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title={`¡Bienvenido, ${user.name}!`}
-        description={getHeaderDescription()}
-        breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }]}
-      />
-      {renderDashboardByRole()}
-    </div>
+    <>
+      <div className="p-6 space-y-6">
+        <PageHeader
+          title={`¡Bienvenido, ${user.name}!`}
+          description={getHeaderDescription()}
+          breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }]}
+        />
+        {renderDashboardByRole()}
+      </div>
+    </>
   );
 };
 

@@ -1,468 +1,431 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useApp } from "@/contexts/AppContext";
 import { useNavigate } from "react-router-dom";
 
+// API Services
+import { getOfferings } from "@/services/OfferingService";
+import { getAllBusinessesForSelect } from "@/services/BusinessService";
+import { getAvailability } from "@/services/AvailabilityService";
+import { createAppointment } from "@/services/AppointmentService";
+import { getOfferingWithEmployees } from "@/services/AssignmentService";
+
 // UI Components
+import Layout from "@/components/Layout";
 import { PageHeader } from "@/components/ui/page-header";
-import { ServiceBookingFilters } from "@/components/ui/service-booking-filters";
-import { ServiceCard } from "@/components/ui/service-card";
-import { BookingDateTimePicker } from "@/components/ui/booking-datetime-picker";
-import { EmptyState } from "@/components/ui/empty-state";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ServiceBookingFilters } from "@/components/ui/ServiceBookingFilters";
+import { ActionButton } from "@/components/ui/action-button";
 import {
-  FiCalendar,
-  FiSearch,
-  FiGrid,
-  FiList,
-  FiCheck,
-  FiArrowLeft,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+
+// Icons
+import {
   FiClock,
   FiDollarSign,
   FiUser,
-  FiMapPin,
+  FiCheck,
+  FiArrowLeft,
+  FiScissors,
+  FiSearch,
+  FiGrid,
+  FiList,
 } from "react-icons/fi";
+
+const INITIAL_FILTERS = {
+  search: "",
+  businessId: "all",
+  category: "all",
+  priceRange: [0, 50000],
+};
 
 const BookAppointment = () => {
   const { user } = useAuth();
-  const {
-    services,
-    businesses,
-    employees,
-    createAppointment,
-    getAvailableSlots,
-  } = useApp();
   const navigate = useNavigate();
 
-  // Estados
-  const [filteredServices, setFilteredServices] = useState(services);
-  const [selectedService, setSelectedService] = useState(null);
-  const [bookingData, setBookingData] = useState(null);
+  const [services, setServices] = useState([]);
+  const [businesses, setBusinesses] = useState([]);
+  const [availability, setAvailability] = useState([]);
+  const [employeesForService, setEmployeesForService] = useState([]);
+
+  const [step, setStep] = useState("selection"); // 'selection', 'datetime', 'confirmation', 'success'
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [error, setError] = useState("");
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [viewMode, setViewMode] = useState("grid"); // 'grid' o 'list'
-  const [isLoading, setIsLoading] = useState(false);
-  const [bookingStep, setBookingStep] = useState("selection"); // 'selection', 'datetime', 'confirmation'
+
+  const [selectedService, setSelectedService] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("any");
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [appointmentNotes, setAppointmentNotes] = useState("");
-  const [bookingSuccess, setBookingSuccess] = useState(false);
 
-  // Aplicar filtros
-  const applyFilters = (filters) => {
-    let filtered = [...services];
+  useEffect(() => {
+    setIsLoading(true);
+    Promise.all([getOfferings(), getAllBusinessesForSelect()])
+      .then(([servicesData, businessesData]) => {
+        setServices(servicesData);
+        setBusinesses(businessesData);
+      })
+      .catch(() => setError("No se pudieron cargar los servicios."))
+      .finally(() => setIsLoading(false));
+  }, []);
 
-    // Filtro por búsqueda de texto
-    if (filters.search) {
-      const searchTerm = filters.search.toLowerCase();
-      filtered = filtered.filter(
-        (service) =>
-          service.name.toLowerCase().includes(searchTerm) ||
-          service.description.toLowerCase().includes(searchTerm) ||
-          service.category.toLowerCase().includes(searchTerm) ||
-          service.tags.some((tag) => tag.toLowerCase().includes(searchTerm)),
-      );
+  useEffect(() => {
+    if (showBookingModal && selectedService && selectedDate) {
+      setIsLoadingAvailability(true);
+      setAvailability([]);
+      setSelectedTimeSlot(null);
+      const dateString = selectedDate.toISOString().split("T")[0];
+      getAvailability(selectedService.id, dateString, selectedEmployeeId)
+        .then(setAvailability)
+        .catch(() => alert("No se pudo cargar la disponibilidad."))
+        .finally(() => setIsLoadingAvailability(false));
     }
+  }, [showBookingModal, selectedService, selectedDate, selectedEmployeeId]);
 
-    // Filtro por negocio
-    if (filters.businessId && filters.businessId !== "all") {
-      filtered = filtered.filter(
-        (service) => service.businessId === filters.businessId,
-      );
+  const handleFilterChange = (filterName, value) => {
+    if (filterName === "clearAll") {
+      const maxPrice =
+        services.length > 0
+          ? Math.max(...services.map((s) => Number(s.price)))
+          : 50000;
+      setFilters({
+        ...INITIAL_FILTERS,
+        priceRange: [0, Math.ceil(maxPrice / 1000) * 1000],
+      });
+    } else {
+      setFilters((prev) => ({ ...prev, [filterName]: value }));
     }
-
-    // Filtro por categoría
-    if (filters.category && filters.category !== "all") {
-      filtered = filtered.filter(
-        (service) => service.category === filters.category,
-      );
-    }
-
-    // Filtro por rango de precio
-    if (filters.priceRange) {
-      filtered = filtered.filter(
-        (service) =>
-          service.price >= filters.priceRange[0] &&
-          service.price <= filters.priceRange[1],
-      );
-    }
-
-    // Filtro por duración
-    if (filters.durationRange) {
-      filtered = filtered.filter(
-        (service) =>
-          service.duration >= filters.durationRange[0] &&
-          service.duration <= filters.durationRange[1],
-      );
-    }
-
-    // Filtro por calificación mínima
-    if (filters.minRating) {
-      filtered = filtered.filter(
-        (service) => service.rating >= filters.minRating,
-      );
-    }
-
-    // Filtro por tags
-    if (filters.tags && filters.tags.length > 0) {
-      filtered = filtered.filter((service) =>
-        filters.tags.some((tag) => service.tags.includes(tag)),
-      );
-    }
-
-    setFilteredServices(filtered);
   };
 
-  // Manejar selección de servicio
-  const handleServiceSelect = (service) => {
+  const filteredServices = useMemo(() => {
+    return services.filter((service) => {
+      const { search, businessId, category, priceRange } = filters;
+      return (
+        (service.name?.toLowerCase() || "").includes(search.toLowerCase()) &&
+        (businessId === "all" ||
+          service.businessId?.toString() === businessId) &&
+        (category === "all" || service.category === category) &&
+        Number(service.price) >= priceRange[0] &&
+        Number(service.price) <= priceRange[1]
+      );
+    });
+  }, [services, filters]);
+
+  const handleServiceSelect = async (service) => {
     setSelectedService(service);
-    setBookingStep("datetime");
+    setSelectedEmployeeId("any");
+    try {
+      const serviceDetails = await getOfferingWithEmployees(service.id);
+      setEmployeesForService(serviceDetails.employees || []);
+    } catch {
+      setEmployeesForService([]);
+    }
+    setStep("datetime");
     setShowBookingModal(true);
   };
 
-  // Manejar selección de fecha y hora
-  const handleDateTimeSelect = (selection) => {
-    setBookingData(selection);
-  };
-
-  // Continuar a confirmación
-  const handleContinueToConfirmation = () => {
-    if (bookingData) {
-      setBookingStep("confirmation");
-    }
-  };
-
-  // Confirmar reserva
   const handleConfirmBooking = async () => {
-    if (!bookingData || !selectedService) return;
-
-    setIsLoading(true);
+    if (!selectedService || !selectedDate || !selectedTimeSlot) return;
+    setIsConfirming(true);
+    setError("");
     try {
+      const serviceDuration = selectedService.durationMinutes;
+      const [hours, minutes] = selectedTimeSlot.time.split(":");
+      const startTime = new Date(selectedDate);
+      startTime.setHours(hours, minutes, 0, 0);
+      const endTime = new Date(startTime.getTime() + serviceDuration * 60000);
+
       const appointmentData = {
-        ...bookingData,
+        employeeId: selectedTimeSlot.employeeId,
+        offeringId: selectedService.id,
+        startTime,
+        endTime,
         notes: appointmentNotes,
       };
-
       await createAppointment(appointmentData);
-      setBookingSuccess(true);
-      setBookingStep("success");
-    } catch (error) {
-      console.error("Error al crear la cita:", error);
-      // Aquí podrías mostrar un toast de error
+      setStep("success");
+    } catch (err) {
+      setError(err.response?.data?.msg || "Error al crear la cita.");
     } finally {
-      setIsLoading(false);
+      setIsConfirming(false);
     }
   };
 
-  // Cerrar modal y resetear
   const handleCloseModal = () => {
     setShowBookingModal(false);
-    setSelectedService(null);
-    setBookingData(null);
-    setBookingStep("selection");
-    setAppointmentNotes("");
-    setBookingSuccess(false);
+    setTimeout(() => {
+      // Delay para que la animación de cierre termine
+      setStep("selection");
+      setSelectedService(null);
+      setSelectedTimeSlot(null);
+      setAppointmentNotes("");
+      setError("");
+    }, 300);
   };
 
-  // Ir a mis citas
-  const goToAppointments = () => {
-    navigate("/appointments");
-  };
-
-  // Renderizar contenido del modal según el paso
   const renderModalContent = () => {
-    const selectedBusiness = businesses.find(
-      (b) => b.id === selectedService?.businessId,
-    );
-    const serviceEmployees = employees.filter(
-      (emp) => emp.businessId === selectedService?.businessId,
-    );
-
-    switch (bookingStep) {
+    switch (step) {
       case "datetime":
         return (
           <div className="space-y-6">
-            <div className="text-center border-b pb-4">
-              <h3 className="text-lg font-semibold">{selectedService?.name}</h3>
-              <p className="text-gray-600">{selectedBusiness?.name}</p>
-              <div className="flex items-center justify-center space-x-4 mt-2 text-sm text-gray-500">
-                <span className="flex items-center space-x-1">
-                  <FiClock className="w-4 h-4" />
-                  <span>{selectedService?.duration} min</span>
-                </span>
-                <span className="flex items-center space-x-1">
-                  <FiDollarSign className="w-4 h-4" />
-                  <span>${selectedService?.price}</span>
-                </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label>1. Elige una Fecha</Label>
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  disabled={(date) =>
+                    date <
+                    new Date(new Date().setDate(new Date().getDate() - 1))
+                  }
+                  className="p-0 mt-2"
+                />
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <Label>2. Elige un Profesional</Label>
+                  <Select
+                    value={selectedEmployeeId}
+                    onValueChange={setSelectedEmployeeId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Cualquier Profesional</SelectItem>
+                      {employeesForService.map((emp) => (
+                        <SelectItem key={emp.id} value={emp.id.toString()}>
+                          {emp.name} {emp.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>3. Elige un Horario</Label>
+                  {isLoadingAvailability ? (
+                    <div className="text-center p-4">
+                      <LoadingSpinner />
+                    </div>
+                  ) : availability.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto pt-2">
+                      {availability.map((slot) => (
+                        <Button
+                          key={slot.time}
+                          variant={
+                            selectedTimeSlot?.time === slot.time
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          onClick={() => setSelectedTimeSlot(slot)}
+                        >
+                          {slot.time}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center text-sm text-gray-500 py-4">
+                      No hay horarios.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-
-            <BookingDateTimePicker
-              service={selectedService}
-              business={selectedBusiness}
-              employees={serviceEmployees}
-              onSelectionChange={handleDateTimeSelect}
-              getAvailableSlots={getAvailableSlots}
-            />
-
-            <div className="flex space-x-3 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={handleCloseModal}
-                className="flex-1"
-              >
+            <DialogFooter>
+              <Button variant="ghost" onClick={handleCloseModal}>
                 Cancelar
               </Button>
               <Button
-                onClick={handleContinueToConfirmation}
-                disabled={!bookingData}
-                className="flex-1"
+                onClick={() => setStep("confirmation")}
+                disabled={!selectedTimeSlot}
               >
                 Continuar
               </Button>
-            </div>
+            </DialogFooter>
           </div>
         );
-
       case "confirmation":
         return (
-          <div className="space-y-6">
-            <div className="text-center border-b pb-4">
-              <h3 className="text-xl font-semibold text-gray-900">
-                Confirmar Reserva
-              </h3>
-              <p className="text-gray-600">Revisa los detalles de tu cita</p>
+          <div className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <div className="p-4 border rounded-lg space-y-3">
+              {/* ... Resumen de la reserva ... */}
             </div>
-
-            {/* Resumen de la reserva */}
-            <div className="space-y-4">
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Servicio:</span>
-                  <span>{selectedService?.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Negocio:</span>
-                  <span>{selectedBusiness?.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Especialista:</span>
-                  <span>{bookingData?.employeeName}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Fecha:</span>
-                  <span>
-                    {new Date(bookingData?.date).toLocaleDateString("es-ES")}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Hora:</span>
-                  <span>{bookingData?.time}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Duración:</span>
-                  <span>{selectedService?.duration} minutos</span>
-                </div>
-                <div className="flex items-center justify-between border-t pt-3">
-                  <span className="font-semibold">Total:</span>
-                  <span className="font-semibold text-lg">
-                    ${selectedService?.price}
-                  </span>
-                </div>
-              </div>
-
-              {/* Notas adicionales */}
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notas adicionales (opcional)</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Escribe aquí cualquier comentario o solicitud especial..."
-                  value={appointmentNotes}
-                  onChange={(e) => setAppointmentNotes(e.target.value)}
-                  rows={3}
-                />
-              </div>
+            <div>
+              <Label htmlFor="notes">Notas adicionales</Label>
+              <Textarea
+                id="notes"
+                value={appointmentNotes}
+                onChange={(e) => setAppointmentNotes(e.target.value)}
+              />
             </div>
-
-            <div className="flex space-x-3 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => setBookingStep("datetime")}
-                className="flex-1"
-              >
-                <FiArrowLeft className="w-4 h-4 mr-2" />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStep("datetime")}>
+                <FiArrowLeft className="mr-2" />
                 Volver
               </Button>
-              <Button
+              <ActionButton
                 onClick={handleConfirmBooking}
-                disabled={isLoading}
-                className="flex-1"
+                isLoading={isConfirming}
+                loadingText="Confirmando..."
               >
-                {isLoading ? (
-                  <>
-                    <LoadingSpinner size="sm" className="mr-2" />
-                    Confirmando...
-                  </>
-                ) : (
-                  <>
-                    <FiCheck className="w-4 h-4 mr-2" />
-                    Confirmar Reserva
-                  </>
-                )}
-              </Button>
-            </div>
+                Confirmar Reserva
+              </ActionButton>
+            </DialogFooter>
           </div>
         );
-
       case "success":
         return (
-          <div className="text-center space-y-6 py-8">
+          <div className="text-center space-y-4 py-8">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
               <FiCheck className="w-8 h-8 text-green-600" />
             </div>
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                ¡Cita Confirmada!
-              </h3>
-              <p className="text-gray-600">
-                Tu cita ha sido reservada exitosamente. Recibirás un
-                recordatorio antes de la fecha.
-              </p>
-            </div>
-
-            <div className="bg-green-50 rounded-lg p-4 text-sm">
-              <p className="font-medium text-green-900">Detalles de la cita:</p>
-              <p className="text-green-700 mt-1">
-                {selectedService?.name} -{" "}
-                {new Date(bookingData?.date).toLocaleDateString("es-ES")} a las{" "}
-                {bookingData?.time}
-              </p>
-            </div>
-
-            <div className="flex space-x-3">
+            <h3 className="text-xl font-semibold">¡Cita Confirmada!</h3>
+            <p className="text-gray-600">Tu cita ha sido agendada con éxito.</p>
+            <DialogFooter className="justify-center pt-4">
               <Button variant="outline" onClick={handleCloseModal}>
-                Reservar Otra Cita
+                Reservar otra cita
               </Button>
-              <Button onClick={goToAppointments}>Ver Mis Citas</Button>
-            </div>
+              <Button onClick={() => navigate("/appointments")}>
+                Ver Mis Citas
+              </Button>
+            </DialogFooter>
           </div>
         );
-
       default:
         return null;
     }
   };
 
-  return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="Reservar Cita"
-        description="Encuentra y reserva el servicio de belleza perfecto para ti"
-        breadcrumbs={[{ label: "Reservar", href: "/book" }]}
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Filtros - Columna izquierda */}
-        <div className="lg:col-span-1">
-          <ServiceBookingFilters
-            businesses={businesses}
-            onFiltersChange={applyFilters}
-          />
+  if (isLoading)
+    return (
+      <Layout>
+        <div className="text-center p-8">
+          <LoadingSpinner size="lg" />
         </div>
+      </Layout>
+    );
 
-        {/* Servicios - Columna principal */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* Header de resultados */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Servicios Disponibles
-              </h2>
-              <p className="text-gray-600">
-                {filteredServices.length} servicio(s) encontrado(s)
+  return (
+    <>
+      <div className="p-6 space-y-6">
+        <PageHeader
+          title="Reservar Cita"
+          description="Encuentra y reserva el servicio perfecto para ti"
+        />
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="lg:col-span-1">
+            <ServiceBookingFilters
+              businesses={businesses}
+              services={services}
+              filters={filters}
+              onFilterChange={handleFilterChange}
+            />
+          </div>
+          <div className="lg:col-span-3 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Servicios Disponibles</h2>
+              <p className="text-sm text-gray-500">
+                {filteredServices.length} resultado(s)
               </p>
             </div>
-
-            <div className="flex items-center space-x-2">
-              <Button
-                variant={viewMode === "grid" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("grid")}
-              >
-                <FiGrid className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("list")}
-              >
-                <FiList className="w-4 h-4" />
-              </Button>
-            </div>
+            {filteredServices.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {filteredServices.map((service) => {
+                  const business = businesses.find(
+                    (b) => b.id === service.businessId,
+                  );
+                  return (
+                    <Card key={service.id} className="flex flex-col">
+                      <CardHeader>
+                        <CardTitle>{service.name}</CardTitle>
+                        <p className="text-sm text-violet-600 font-semibold">
+                          {business?.name}
+                        </p>
+                      </CardHeader>
+                      <CardContent className="flex-grow">
+                        <Badge variant="outline">{service.category}</Badge>
+                        <p className="text-sm text-gray-600 mt-2">
+                          {service.description}
+                        </p>
+                      </CardContent>
+                      <div className="p-6 pt-0 mt-auto">
+                        <div className="flex justify-between items-center pt-2 border-t text-sm">
+                          <span className="flex items-center">
+                            <FiClock className="inline mr-1.5" />
+                            {service.durationMinutes} min
+                          </span>
+                          <span className="font-bold text-lg">
+                            ${Number(service.price).toFixed(2)}
+                          </span>
+                        </div>
+                        <Button
+                          className="w-full mt-4"
+                          onClick={() => handleServiceSelect(service)}
+                        >
+                          Reservar
+                        </Button>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState
+                icon={FiSearch}
+                title="No se encontraron servicios"
+                description="Prueba cambiando los filtros."
+              />
+            )}
           </div>
-
-          {/* Lista de servicios */}
-          {filteredServices.length > 0 ? (
-            <div
-              className={
-                viewMode === "grid"
-                  ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
-                  : "space-y-4"
-              }
-            >
-              {filteredServices.map((service) => {
-                const business = businesses.find(
-                  (b) => b.id === service.businessId,
-                );
-                return (
-                  <ServiceCard
-                    key={service.id}
-                    service={service}
-                    business={business}
-                    employees={employees}
-                    onBookService={handleServiceSelect}
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <EmptyState
-              icon={FiSearch}
-              title="No se encontraron servicios"
-              description="Prueba ajustando los filtros para encontrar más opciones disponibles."
-            />
-          )}
         </div>
       </div>
-
-      {/* Modal de reserva */}
-      <Dialog open={showBookingModal} onOpenChange={setShowBookingModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={showBookingModal} onOpenChange={handleCloseModal}>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>
-              {bookingStep === "success" ? "Reserva Exitosa" : "Reservar Cita"}
-            </DialogTitle>
-            {bookingStep !== "success" && (
-              <DialogDescription>
-                Completa los pasos para confirmar tu reserva
-              </DialogDescription>
-            )}
+            <DialogTitle>{selectedService?.name}</DialogTitle>
           </DialogHeader>
           {renderModalContent()}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 };
 
