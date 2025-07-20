@@ -2,7 +2,6 @@ import apiClient from "./api";
 
 export const uploadProfilePhoto = async (userId, role, file) => {
   const formData = new FormData();
-  // El nombre 'profilePhoto' debe coincidir con el del middleware de multer
   formData.append("profilePhoto", file);
 
   const endpoint =
@@ -10,12 +9,15 @@ export const uploadProfilePhoto = async (userId, role, file) => {
 
   try {
     const response = await apiClient.post(endpoint, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data", // Es crucial para la subida de archivos
-      },
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
   } catch (error) {
+    // --- AÑADIMOS UN LOG DETALLADO ---
+    console.error(
+      "ERROR DETALLADO EN ProfileService:",
+      error.response || error,
+    );
     throw error;
   }
 };

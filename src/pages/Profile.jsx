@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useApp } from "@/contexts/AppContext";
 import apiClient from "@/services/api";
 
 // Importamos las funciones de validación centralizadas
@@ -19,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/ui/form-field";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -33,8 +31,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { ProfileStats } from "@/components/ui/profile-stats";
-import { ProfilePhotoUpload } from "@/components/ui/profile-photo-upload";
+import { ProfilePhotoUpload } from "../components/ui/ProfilePhotoUpload";
 import { Textarea } from "@/components/ui/textarea";
 
 // Icons
@@ -53,6 +50,20 @@ import {
   FiFileText,
 } from "react-icons/fi";
 
+// Asumimos que tienes un componente para las estadísticas
+const ProfileStats = ({ user }) => {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Actividad Reciente</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>Estadísticas de actividad próximamente.</p>
+      </CardContent>
+    </Card>
+  );
+};
+
 const Profile = () => {
   const {
     user,
@@ -60,7 +71,6 @@ const Profile = () => {
     changePassword,
     isLoading: authIsLoading,
   } = useAuth();
-  const { appointments } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -87,7 +97,6 @@ const Profile = () => {
     confirm: false,
   });
 
-  // Usamos las funciones de validación importadas para derivar el estado
   const passwordValidationResult = validatePassword(passwordData.newPassword);
   const passwordStrength = getPasswordStrength(
     passwordValidationResult.requirements,
@@ -107,9 +116,6 @@ const Profile = () => {
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
     setProfileData((prev) => ({ ...prev, [name]: value }));
-    if (profileErrors[name]) {
-      setProfileErrors((prev) => ({ ...prev, [name]: "" }));
-    }
   };
 
   const handleSaveProfile = async () => {
@@ -118,8 +124,6 @@ const Profile = () => {
     setProfileErrors({});
     try {
       if (!user || !user.id) throw new Error("Usuario no autenticado.");
-
-      // Se usa apiClient para consistencia y manejo automático de tokens
       const endpoint =
         user.role === "client" ? `/users/${user.id}` : `/employees/${user.id}`;
       const response = await apiClient.put(endpoint, profileData);
@@ -128,7 +132,6 @@ const Profile = () => {
       if (updatedUserData) {
         updateUser(updatedUserData);
       }
-
       setProfileSuccess("Perfil actualizado exitosamente");
       setIsEditing(false);
       setTimeout(() => setProfileSuccess(""), 3000);
@@ -157,8 +160,6 @@ const Profile = () => {
 
   const handlePasswordChange = (field, value) => {
     setPasswordData((prev) => ({ ...prev, [field]: value }));
-    if (passwordErrors[field])
-      setPasswordErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
   const validateAndSubmitPassword = async () => {
@@ -219,430 +220,420 @@ const Profile = () => {
     })[role] || "secondary";
 
   if (!user) {
-    return <div className="p-6 text-center">Cargando perfil...</div>;
+    return (
+      <>
+        <div className="p-6 text-center">Cargando perfil...</div>
+      </>
+    );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="Mi Perfil"
-        description="Gestiona tu información personal y configuración de cuenta"
-      />
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile">Información Personal</TabsTrigger>
-          <TabsTrigger value="activity">Actividad</TabsTrigger>
-          <TabsTrigger value="security">Seguridad</TabsTrigger>
-          <TabsTrigger value="preferences">Preferencias</TabsTrigger>
-        </TabsList>
+    <>
+      <div className="p-6 space-y-6">
+        <PageHeader
+          title="Mi Perfil"
+          description="Gestiona tu información personal y configuración de cuenta"
+        />
+        <Tabs defaultValue="profile" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="profile">Información Personal</TabsTrigger>
+            <TabsTrigger value="activity">Actividad</TabsTrigger>
+            <TabsTrigger value="security">Seguridad</TabsTrigger>
+            <TabsTrigger value="preferences">Preferencias</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="profile" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <ProfilePhotoUpload
-                    currentPhoto={user.photo}
-                    userName={user.name}
-                    onPhotoUpdate={(photoUrl) =>
-                      updateUser({ photo: photoUrl })
-                    }
-                    isLoading={authIsLoading}
-                  />
-                  <div>
-                    <CardTitle className="text-2xl">
-                      {user.name} {user.lastName}
-                    </CardTitle>
-                    <div className="flex items-center space-x-2 mt-2">
-                      <Badge variant={getRoleBadgeVariant(user.role)}>
-                        {getRoleLabel(user.role)}
-                      </Badge>
-                      <span className="text-sm text-gray-500">
-                        @{user.userName}
-                      </span>
+          <TabsContent value="profile" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center space-x-4">
+                    <ProfilePhotoUpload
+                      currentPhoto={user.photo}
+                      userName={`${user.name} ${user.lastName}`}
+                      onPhotoUpdate={(newPhotoUrl) =>
+                        updateUser({ photo: newPhotoUrl })
+                      }
+                    />
+                    <div>
+                      <CardTitle className="text-2xl">
+                        {user.name} {user.lastName}
+                      </CardTitle>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Badge variant={getRoleBadgeVariant(user.role)}>
+                          {getRoleLabel(user.role)}
+                        </Badge>
+                        <span className="text-sm text-gray-500">
+                          @{user.userName}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {!isEditing ? (
-                    <Button onClick={() => setIsEditing(true)}>
-                      <FiEdit3 className="w-4 h-4 mr-2" /> Editar Perfil
-                    </Button>
-                  ) : (
-                    <div className="flex space-x-2">
-                      <Button variant="outline" onClick={handleCancelEdit}>
-                        <FiX className="w-4 h-4 mr-2" /> Cancelar
+                  <div className="flex items-center space-x-2">
+                    {!isEditing ? (
+                      <Button onClick={() => setIsEditing(true)}>
+                        <FiEdit3 className="w-4 h-4 mr-2" /> Editar Perfil
                       </Button>
-                      <ActionButton
-                        onClick={handleSaveProfile}
-                        isLoading={isSavingProfile}
-                        loadingText="Guardando..."
-                        icon={FiSave}
-                      >
-                        Guardar
-                      </ActionButton>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="flex space-x-2">
+                        <Button variant="outline" onClick={handleCancelEdit}>
+                          <FiX className="w-4 h-4 mr-2" /> Cancelar
+                        </Button>
+                        <ActionButton
+                          onClick={handleSaveProfile}
+                          isLoading={isSavingProfile}
+                          loadingText="Guardando..."
+                          icon={FiSave}
+                        >
+                          Guardar Cambios
+                        </ActionButton>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {profileSuccess && (
-                <Alert>
-                  <FiCheck className="h-4 w-4" />
-                  <AlertDescription>{profileSuccess}</AlertDescription>
-                </Alert>
-              )}
-              {profileErrors.general && (
-                <Alert variant="destructive">
-                  <AlertDescription>{profileErrors.general}</AlertDescription>
-                </Alert>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  label="Nombre"
-                  htmlFor="name"
-                  required
-                  error={profileErrors.name}
-                >
-                  <Input
-                    id="name"
-                    name="name"
-                    value={profileData.name}
-                    onChange={handleProfileChange}
-                    disabled={!isEditing}
-                  />
-                </FormField>
-                <FormField
-                  label="Apellido"
-                  htmlFor="lastName"
-                  required
-                  error={profileErrors.lastName}
-                >
-                  <Input
-                    id="lastName"
-                    name="lastName"
-                    value={profileData.lastName}
-                    onChange={handleProfileChange}
-                    disabled={!isEditing}
-                  />
-                </FormField>
-                <FormField
-                  label="Teléfono"
-                  htmlFor="phone"
-                  required
-                  error={profileErrors.phone}
-                >
-                  <div className="relative">
-                    <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {profileSuccess && (
+                  <Alert>
+                    <FiCheck className="h-4 w-4" />
+                    <AlertDescription>{profileSuccess}</AlertDescription>
+                  </Alert>
+                )}
+                {profileErrors.general && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{profileErrors.general}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField label="Nombre" htmlFor="name" required>
                     <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      value={profileData.phone}
+                      id="name"
+                      name="name"
+                      value={profileData.name}
                       onChange={handleProfileChange}
                       disabled={!isEditing}
-                      className="pl-10"
                     />
-                  </div>
-                </FormField>
-                <FormField
-                  label="Correo Electrónico (no editable)"
-                  htmlFor="email"
-                >
-                  <div className="relative">
-                    <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  </FormField>
+                  <FormField label="Apellido" htmlFor="lastName" required>
                     <Input
-                      id="email"
-                      type="email"
-                      value={user.email || ""}
-                      disabled
-                      className="pl-10"
+                      id="lastName"
+                      name="lastName"
+                      value={profileData.lastName}
+                      onChange={handleProfileChange}
+                      disabled={!isEditing}
                     />
-                  </div>
-                </FormField>
-                <div className="md:col-span-2">
-                  <FormField label="Notas Adicionales" htmlFor="notes">
+                  </FormField>
+                  <FormField label="Teléfono" htmlFor="phone">
                     <div className="relative">
-                      <FiFileText className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                      <Textarea
-                        id="notes"
-                        name="notes"
-                        value={profileData.notes || ""}
+                      <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <Input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        value={profileData.phone}
                         onChange={handleProfileChange}
                         disabled={!isEditing}
                         className="pl-10"
-                        placeholder="Alergias, preferencias o cualquier otra información relevante."
                       />
                     </div>
                   </FormField>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="activity" className="space-y-6">
-          <ProfileStats user={user} appointments={appointments} />
-        </TabsContent>
-
-        <TabsContent value="security" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <FiShield className="w-5 h-5" />
-                <span>Configuración de Seguridad</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-violet-100 rounded-lg">
-                      <FiLock className="w-5 h-5 text-violet-600" />
+                  <FormField label="Correo (no editable)" htmlFor="email">
+                    <div className="relative">
+                      <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <Input
+                        id="email"
+                        type="email"
+                        value={user.email || ""}
+                        disabled
+                        className="pl-10"
+                      />
                     </div>
-                    <div>
-                      <h4 className="font-medium">Contraseña</h4>
-                      <p className="text-sm text-gray-600">
-                        Actualiza tu contraseña periódicamente
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowPasswordDialog(true)}
-                  >
-                    <FiLock className="w-4 h-4 mr-2" />
-                    Cambiar Contraseña
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <FiShield className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">Verificación en Dos Pasos</h4>
-                      <p className="text-sm text-gray-600">
-                        Próximamente disponible
-                      </p>
-                    </div>
-                  </div>
-                  <Button variant="outline" disabled>
-                    Configurar
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="preferences" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <FiSettings className="w-5 h-5" />
-                <span>Preferencias de Usuario</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12">
-                <FiSettings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold">Próximamente</h3>
-                <p className="text-gray-600">
-                  Las preferencias de usuario estarán disponibles en una próxima
-                  actualización.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Cambiar Contraseña</DialogTitle>
-            <DialogDescription>
-              Usa una contraseña segura para proteger tu cuenta
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
-            {passwordSuccess && (
-              <Alert>
-                <FiCheck className="h-4 w-4" />
-                <AlertDescription>{passwordSuccess}</AlertDescription>
-              </Alert>
-            )}
-            {passwordErrors.general && (
-              <Alert variant="destructive">
-                <AlertDescription>{passwordErrors.general}</AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-4">
-              <FormField
-                label="Contraseña Actual"
-                htmlFor="currentPassword"
-                required
-                error={passwordErrors.currentPassword}
-              >
-                <div className="relative">
-                  <Input
-                    id="currentPassword"
-                    type={showPasswords.current ? "text" : "password"}
-                    value={passwordData.currentPassword}
-                    onChange={(e) =>
-                      handlePasswordChange("currentPassword", e.target.value)
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => togglePasswordVisibility("current")}
-                  >
-                    {showPasswords.current ? <FiEyeOff /> : <FiEye />}
-                  </button>
-                </div>
-              </FormField>
-              <FormField
-                label="Nueva Contraseña"
-                htmlFor="newPassword"
-                required
-                error={passwordErrors.newPassword}
-              >
-                <div className="relative">
-                  <Input
-                    id="newPassword"
-                    type={showPasswords.new ? "text" : "password"}
-                    value={passwordData.newPassword}
-                    onChange={(e) =>
-                      handlePasswordChange("newPassword", e.target.value)
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => togglePasswordVisibility("new")}
-                  >
-                    {showPasswords.new ? <FiEyeOff /> : <FiEye />}
-                  </button>
-                </div>
-              </FormField>
-
-              {passwordData.newPassword && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Fortaleza:</span>
-                    <span
-                      className={`text-sm font-medium ${passwordStrength.color.replace("bg-", "text-")}`}
-                    >
-                      {passwordStrength.label}
-                    </span>
-                  </div>
-                  <Progress
-                    value={passwordStrength.strength}
-                    className={`h-2 ${passwordStrength.color}`}
-                  />
-                  <div className="grid grid-cols-2 gap-2 text-xs mt-2">
-                    <div
-                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.length ? "text-green-600" : "text-gray-500"}`}
-                    >
-                      {passwordValidationResult.requirements.length ? (
-                        <FiCheck className="w-3 h-3" />
-                      ) : (
-                        <FiX className="w-3 h-3" />
-                      )}
-                      <span>8+ caracteres</span>
-                    </div>
-                    <div
-                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.uppercase ? "text-green-600" : "text-gray-500"}`}
-                    >
-                      {passwordValidationResult.requirements.uppercase ? (
-                        <FiCheck className="w-3 h-3" />
-                      ) : (
-                        <FiX className="w-3 h-3" />
-                      )}
-                      <span>Mayúscula</span>
-                    </div>
-                    <div
-                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.lowercase ? "text-green-600" : "text-gray-500"}`}
-                    >
-                      {passwordValidationResult.requirements.lowercase ? (
-                        <FiCheck className="w-3 h-3" />
-                      ) : (
-                        <FiX className="w-3 h-3" />
-                      )}
-                      <span>Minúscula</span>
-                    </div>
-                    <div
-                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.number ? "text-green-600" : "text-gray-500"}`}
-                    >
-                      {passwordValidationResult.requirements.number ? (
-                        <FiCheck className="w-3 h-3" />
-                      ) : (
-                        <FiX className="w-3 h-3" />
-                      )}
-                      <span>Número</span>
-                    </div>
-                    <div
-                      className={`flex items-center space-x-1 ${passwordValidationResult.requirements.special ? "text-green-600" : "text-gray-500"}`}
-                    >
-                      {passwordValidationResult.requirements.special ? (
-                        <FiCheck className="w-3 h-3" />
-                      ) : (
-                        <FiX className="w-3 h-3" />
-                      )}
-                      <span>Carácter especial</span>
-                    </div>
+                  </FormField>
+                  <div className="md:col-span-2">
+                    <FormField label="Notas Adicionales" htmlFor="notes">
+                      <div className="relative">
+                        <FiFileText className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                        <Textarea
+                          id="notes"
+                          name="notes"
+                          value={profileData.notes || ""}
+                          onChange={handleProfileChange}
+                          disabled={!isEditing}
+                          className="pl-10"
+                          placeholder="Alergias, preferencias o cualquier otra información relevante."
+                        />
+                      </div>
+                    </FormField>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="activity" className="space-y-6">
+            <ProfileStats user={user} />
+          </TabsContent>
+
+          <TabsContent value="security" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <FiShield className="w-5 h-5" />
+                  <span>Configuración de Seguridad</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-violet-100 rounded-lg">
+                        <FiLock className="w-5 h-5 text-violet-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">Contraseña</h4>
+                        <p className="text-sm text-gray-600">
+                          Actualiza tu contraseña periódicamente
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowPasswordDialog(true)}
+                    >
+                      <FiLock className="w-4 h-4 mr-2" />
+                      Cambiar Contraseña
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <FiShield className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">
+                          Verificación en Dos Pasos
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          Próximamente disponible
+                        </p>
+                      </div>
+                    </div>
+                    <Button variant="outline" disabled>
+                      Configurar
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="preferences" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <FiSettings className="w-5 h-5" />
+                  <span>Preferencias de Usuario</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-12">
+                  <FiSettings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold">Próximamente</h3>
+                  <p className="text-gray-600">
+                    Las preferencias de usuario estarán disponibles en una
+                    próxima actualización.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Cambiar Contraseña</DialogTitle>
+              <DialogDescription>
+                Usa una contraseña segura para proteger tu cuenta
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+              {passwordSuccess && (
+                <Alert>
+                  <FiCheck className="h-4 w-4" />
+                  <AlertDescription>{passwordSuccess}</AlertDescription>
+                </Alert>
               )}
+              {passwordErrors.general && (
+                <Alert variant="destructive">
+                  <AlertDescription>{passwordErrors.general}</AlertDescription>
+                </Alert>
+              )}
+              <div className="space-y-4">
+                <FormField
+                  label="Contraseña Actual"
+                  htmlFor="currentPassword"
+                  required
+                  error={passwordErrors.currentPassword}
+                >
+                  <div className="relative">
+                    <Input
+                      id="currentPassword"
+                      type={showPasswords.current ? "text" : "password"}
+                      value={passwordData.currentPassword}
+                      onChange={(e) =>
+                        handlePasswordChange("currentPassword", e.target.value)
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => togglePasswordVisibility("current")}
+                    >
+                      {showPasswords.current ? <FiEyeOff /> : <FiEye />}
+                    </button>
+                  </div>
+                </FormField>
+                <FormField
+                  label="Nueva Contraseña"
+                  htmlFor="newPassword"
+                  required
+                  error={passwordErrors.newPassword}
+                >
+                  <div className="relative">
+                    <Input
+                      id="newPassword"
+                      type={showPasswords.new ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={(e) =>
+                        handlePasswordChange("newPassword", e.target.value)
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => togglePasswordVisibility("new")}
+                    >
+                      {showPasswords.new ? <FiEyeOff /> : <FiEye />}
+                    </button>
+                  </div>
+                </FormField>
 
-              <FormField
-                label="Confirmar Nueva Contraseña"
-                htmlFor="confirmPassword"
-                required
-                error={passwordErrors.confirmPassword}
-              >
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showPasswords.confirm ? "text" : "password"}
-                    value={passwordData.confirmPassword}
-                    onChange={(e) =>
-                      handlePasswordChange("confirmPassword", e.target.value)
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => togglePasswordVisibility("confirm")}
-                  >
-                    {showPasswords.confirm ? <FiEyeOff /> : <FiEye />}
-                  </button>
-                </div>
-              </FormField>
+                {passwordData.newPassword && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Fortaleza:</span>
+                      <span
+                        className={`text-sm font-medium ${passwordStrength.color.replace("bg-", "text-")}`}
+                      >
+                        {passwordStrength.label}
+                      </span>
+                    </div>
+                    <Progress
+                      value={passwordStrength.strength}
+                      className={`h-2 ${passwordStrength.color}`}
+                    />
+                    <div className="grid grid-cols-2 gap-2 text-xs mt-2">
+                      <div
+                        className={`flex items-center space-x-1 ${passwordValidationResult.requirements.length ? "text-green-600" : "text-gray-500"}`}
+                      >
+                        {passwordValidationResult.requirements.length ? (
+                          <FiCheck className="w-3 h-3" />
+                        ) : (
+                          <FiX className="w-3 h-3" />
+                        )}
+                        <span>8+ caracteres</span>
+                      </div>
+                      <div
+                        className={`flex items-center space-x-1 ${passwordValidationResult.requirements.uppercase ? "text-green-600" : "text-gray-500"}`}
+                      >
+                        {passwordValidationResult.requirements.uppercase ? (
+                          <FiCheck className="w-3 h-3" />
+                        ) : (
+                          <FiX className="w-3 h-3" />
+                        )}
+                        <span>Mayúscula</span>
+                      </div>
+                      <div
+                        className={`flex items-center space-x-1 ${passwordValidationResult.requirements.lowercase ? "text-green-600" : "text-gray-500"}`}
+                      >
+                        {passwordValidationResult.requirements.lowercase ? (
+                          <FiCheck className="w-3 h-3" />
+                        ) : (
+                          <FiX className="w-3 h-3" />
+                        )}
+                        <span>Minúscula</span>
+                      </div>
+                      <div
+                        className={`flex items-center space-x-1 ${passwordValidationResult.requirements.number ? "text-green-600" : "text-gray-500"}`}
+                      >
+                        {passwordValidationResult.requirements.number ? (
+                          <FiCheck className="w-3 h-3" />
+                        ) : (
+                          <FiX className="w-3 h-3" />
+                        )}
+                        <span>Número</span>
+                      </div>
+                      <div
+                        className={`flex items-center space-x-1 ${passwordValidationResult.requirements.special ? "text-green-600" : "text-gray-500"}`}
+                      >
+                        {passwordValidationResult.requirements.special ? (
+                          <FiCheck className="w-3 h-3" />
+                        ) : (
+                          <FiX className="w-3 h-3" />
+                        )}
+                        <span>Carácter especial</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <FormField
+                  label="Confirmar Nueva Contraseña"
+                  htmlFor="confirmPassword"
+                  required
+                  error={passwordErrors.confirmPassword}
+                >
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showPasswords.confirm ? "text" : "password"}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) =>
+                        handlePasswordChange("confirmPassword", e.target.value)
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => togglePasswordVisibility("confirm")}
+                    >
+                      {showPasswords.confirm ? <FiEyeOff /> : <FiEye />}
+                    </button>
+                  </div>
+                </FormField>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPasswordDialog(false)}
+                >
+                  Cancelar
+                </Button>
+                <ActionButton
+                  onClick={validateAndSubmitPassword}
+                  isLoading={authIsLoading}
+                  loadingText="Cambiando..."
+                  icon={FiLock}
+                >
+                  Cambiar Contraseña
+                </ActionButton>
+              </DialogFooter>
             </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setShowPasswordDialog(false)}
-              >
-                Cancelar
-              </Button>
-              <ActionButton
-                onClick={validateAndSubmitPassword}
-                isLoading={authIsLoading}
-                loadingText="Cambiando..."
-                icon={FiLock}
-              >
-                Cambiar Contraseña
-              </ActionButton>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </>
   );
 };
+
 export default Profile;
