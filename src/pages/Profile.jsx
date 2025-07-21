@@ -249,7 +249,7 @@ const Profile = () => {
                   <div className="flex items-center space-x-4">
                     <ProfilePhotoUpload
                       currentPhoto={user.photo}
-                      userName={`${user.name} ${user.lastName}`}
+                      displayName={`${user.name} ${user.lastName}`}
                       onPhotoUpdate={(newPhotoUrl) =>
                         updateUser({ photo: newPhotoUrl })
                       }

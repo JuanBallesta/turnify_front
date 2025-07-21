@@ -3,12 +3,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "./loading-spinner";
 import { FiCamera } from "react-icons/fi";
-import { uploadProfilePhoto } from "@/services/ProfileService"; // <-- Restaurado
+import { uploadProfilePhoto } from "@/services/ProfileService";
 import { useAuth } from "@/contexts/AuthContext";
 
 export const ProfilePhotoUpload = ({
   currentPhoto,
-  userName,
+  displayName, // <-- Usaremos este prop para el nombre completo
   onPhotoUpdate,
 }) => {
   const { user } = useAuth();
@@ -26,8 +26,8 @@ export const ProfilePhotoUpload = ({
 
     try {
       if (!user) throw new Error("Usuario no autenticado");
-      // --- LÓGICA DE PRODUCCIÓN RESTAURADA ---
       const response = await uploadProfilePhoto(user.id, user.role, file);
+
       onPhotoUpdate(response.data.photoUrl);
       setPreview(null);
     } catch (error) {
@@ -44,12 +44,15 @@ export const ProfilePhotoUpload = ({
   };
 
   const getInitials = (name) => {
-    if (!name) return "?";
-    const names = name.split(" ");
+    if (!name || typeof name !== "string") return "?";
+    const names = name.trim().split(" ").filter(Boolean); // Filtra espacios extra
     if (names.length > 1) {
-      return `${names[0][0]}${names[1][0]}`.toUpperCase();
+      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }
-    return name.substring(0, 2).toUpperCase();
+    if (names.length === 1 && names[0].length > 1) {
+      return names[0].substring(0, 2).toUpperCase();
+    }
+    return "?";
   };
 
   return (
@@ -67,11 +70,11 @@ export const ProfilePhotoUpload = ({
             preview ||
             (currentPhoto && `${import.meta.env.VITE_API_URL}${currentPhoto}`)
           }
-          alt={userName}
+          alt={displayName}
           className="object-cover"
         />
         <AvatarFallback className="text-3xl">
-          {getInitials(userName)}
+          {getInitials(displayName)}
         </AvatarFallback>
       </Avatar>
       <Button

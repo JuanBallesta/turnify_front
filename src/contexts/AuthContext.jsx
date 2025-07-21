@@ -16,8 +16,12 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    const storedUser = localStorage.getItem("user");
-    return storedUser ? JSON.parse(storedUser) : null;
+    try {
+      const storedUser = localStorage.getItem("user");
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (error) {
+      return null;
+    }
   });
   const [token, setToken] = useState(localStorage.getItem("token") || null);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,9 +38,9 @@ export const AuthProvider = ({ children }) => {
           body: JSON.stringify({ userName, password }),
         });
         const data = await response.json();
-        if (!response.ok || !data.ok) {
+        if (!response.ok || !data.ok)
           throw new Error(data.msg || "Error al iniciar sesión");
-        }
+
         const clientWithRole = { ...data.client, role: "client" };
         setUser(clientWithRole);
         setToken(data.token);
@@ -54,9 +58,8 @@ export const AuthProvider = ({ children }) => {
     async (userData) => {
       setIsLoading(true);
       try {
-        await apiClient.post("/users", userData);
-
-        return await loginClient(userData.userName, userData.password);
+        await apiClient.post("/api/users", userData);
+        return await loginClient(userData.username, userData.password);
       } catch (error) {
         throw error;
       } finally {
@@ -76,9 +79,9 @@ export const AuthProvider = ({ children }) => {
           body: JSON.stringify({ userName, password }),
         });
         const data = await response.json();
-        if (!response.ok || !data.ok) {
+        if (!response.ok || !data.ok)
           throw new Error(data.msg || "Credenciales inválidas");
-        }
+
         setUser(data.user);
         setToken(data.token);
         localStorage.setItem("token", data.token);
@@ -98,10 +101,15 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("user");
   }, []);
 
+  // --- FUNCIÓN updateUser VERIFICADA Y ROBUSTA ---
   const updateUser = useCallback((newUserData) => {
     setUser((prevUser) => {
+      if (!prevUser) return null;
+      // Fusiona los datos antiguos con los nuevos
       const updatedUser = { ...prevUser, ...newUserData };
+      // Guarda el objeto actualizado en localStorage
       localStorage.setItem("user", JSON.stringify(updatedUser));
+      // Devuelve el nuevo estado
       return updatedUser;
     });
   }, []);

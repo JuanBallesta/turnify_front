@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,7 +10,18 @@ import {
   FiImage,
 } from "react-icons/fi";
 
+// 1. Definimos la URL base del backend
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
 export const ServiceCard = ({ service, business, onBookService }) => {
+  // 2. Construimos la URL completa para la imagen
+  // Si service.image existe y no es ya una URL completa, le añadimos el prefijo.
+  const imageUrl = service.image
+    ? service.image.startsWith("http")
+      ? service.image
+      : `${API_URL}${service.image}`
+    : null;
+
   const formatDuration = (minutes) => {
     if (minutes < 60) return `${minutes} min`;
     const h = Math.floor(minutes / 60);
@@ -21,9 +32,10 @@ export const ServiceCard = ({ service, business, onBookService }) => {
   return (
     <Card className="h-full flex flex-col overflow-hidden group transition-shadow hover:shadow-lg">
       <div className="h-48 bg-gray-100 overflow-hidden relative">
-        {service.image ? (
+        {imageUrl ? (
+          // 3. Usamos la nueva variable imageUrl
           <img
-            src={service.image}
+            src={imageUrl}
             alt={service.name}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />

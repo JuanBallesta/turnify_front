@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-
-// API Services
-import { getBusinesses } from "@/services/BusinessService";
+import {
+  getBusinesses,
+  getAllBusinessesForSelect,
+} from "@/services/BusinessService";
 import {
   getOfferings,
   createOffering,
   updateOffering,
   deleteOffering,
+  uploadOfferingPhoto,
 } from "@/services/OfferingService";
 import { getEmployees } from "@/services/EmployeeService";
 import {
@@ -16,7 +18,6 @@ import {
 } from "@/services/AssignmentService";
 
 // UI Components
-import Layout from "@/components/Layout";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { SearchBox } from "@/components/ui/search-box";
@@ -51,8 +52,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 // Icons
@@ -73,19 +74,21 @@ import {
   FiUsers,
 } from "react-icons/fi";
 
-const getTableColumns = (
-  handleEdit,
-  handleDelete,
-  handleAssign,
-  isSuperUser,
-) => [
+// Definimos la URL base del backend fuera del componente
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+const getColumns = (handleEdit, handleDelete, handleAssign, isSuperUser) => [
   {
     key: "image",
     title: "",
     headerClassName: "w-16",
     render: (value, row) => (
       <Avatar className="h-10 w-10 rounded-md">
-        <AvatarImage src={value} alt={row.name} className="object-cover" />
+        <AvatarImage
+          src={value ? `${API_URL}${value}` : undefined}
+          alt={row.name}
+          className="object-cover"
+        />
         <AvatarFallback className="rounded-md bg-gray-100">
           <FiTag className="h-5 w-5 text-gray-400" />
         </AvatarFallback>
@@ -109,7 +112,7 @@ const getTableColumns = (
         {
           key: "business.name",
           title: "Negocio",
-          render: (val) => <span className="text-sm">{val || "N/A"}</span>,
+          render: (val) => val || "N/A",
         },
       ]
     : []),
@@ -189,6 +192,7 @@ const Services = () => {
   const [showDialog, setShowDialog] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [serviceData, setServiceData] = useState({});
+  const [selectedFile, setSelectedFile] = useState(null);
   const [activeView, setActiveView] = useState("list");
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [assigningService, setAssigningService] = useState(null);
@@ -201,12 +205,12 @@ const Services = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const servicesData = await getOfferings();
+      const [servicesData, businessesData] = await Promise.all([
+        getOfferings(),
+        isSuperUser ? getAllBusinessesForSelect() : Promise.resolve([]),
+      ]);
       setServices(servicesData);
-      if (isSuperUser) {
-        const businessesData = await getBusinesses();
-        setBusinesses(businessesData);
-      }
+      setBusinesses(businessesData);
     } catch (err) {
       setError("No se pudieron cargar los datos.");
     } finally {
@@ -237,6 +241,7 @@ const Services = () => {
 
   const handleCreate = () => {
     setEditingService(null);
+    setSelectedFile(null);
     setServiceData({
       name: "",
       description: "",
@@ -252,30 +257,42 @@ const Services = () => {
 
   const handleEdit = (service) => {
     setEditingService(service);
+    setSelectedFile(null);
     setServiceData({ ...service });
     setShowDialog(true);
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setServiceData((prev) => ({ ...prev, image: previewUrl }));
+    }
   };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      if (
-        !serviceData.name ||
-        !serviceData.category ||
-        !serviceData.businessId ||
-        serviceData.durationMinutes <= 0 ||
-        serviceData.price < 0
-      ) {
-        alert("Por favor, completa todos los campos requeridos.");
-        setIsSaving(false);
-        return;
+      let servicePayload = { ...serviceData };
+      delete servicePayload.image; // No enviamos la URL de vista previa
+
+      let savedService;
+      if (editingService) {
+        const response = await updateOffering(
+          editingService.id,
+          servicePayload,
+        );
+        savedService = response.data;
+      } else {
+        const response = await createOffering(servicePayload);
+        savedService = response.data;
       }
-      const dataToSave = { ...serviceData };
-      if (dataToSave.image && dataToSave.image.startsWith("data:")) {
-        delete dataToSave.image;
+
+      if (selectedFile) {
+        await uploadOfferingPhoto(savedService.id, selectedFile);
       }
-      if (editingService) await updateOffering(editingService.id, dataToSave);
-      else await createOffering(dataToSave);
+
       setShowDialog(false);
       loadData();
     } catch (err) {
@@ -353,7 +370,7 @@ const Services = () => {
     }
   };
 
-  const tableColumns = getTableColumns(
+  const tableColumns = getColumns(
     handleEdit,
     handleDelete,
     openAssignDialog,
@@ -362,20 +379,20 @@ const Services = () => {
 
   if (isLoading)
     return (
-      <Layout>
-        <div>Cargando...</div>
-      </Layout>
+      <>
+        <div className="p-6 text-center">Cargando...</div>
+      </>
     );
   if (error)
     return (
-      <Layout>
-        <div>{error}</div>
-      </Layout>
+      <>
+        <div className="p-6 text-center text-red-500">{error}</div>
+      </>
     );
 
   return (
     <>
-      <div className="space-y-6 p-6">
+      <div className="p-6 space-y-6">
         <PageHeader
           title="Gestión de Servicios"
           actions={
@@ -398,147 +415,66 @@ const Services = () => {
             />
             <TabsList>
               <TabsTrigger value="list">
-                <FiList className="h-4 w-4" />
+                <FiList />
               </TabsTrigger>
               <TabsTrigger value="grid">
-                <FiGrid className="h-4 w-4" />
+                <FiGrid />
               </TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="list">
-            <Card className="border-0 shadow-sm mt-4">
+            <Card className="mt-4">
               <CardHeader>
                 <CardTitle>Lista de Servicios</CardTitle>
               </CardHeader>
               <CardContent>
-                {filteredServices.length > 0 ? (
-                  <DataTable columns={tableColumns} data={filteredServices} />
-                ) : (
-                  <EmptyState
-                    icon={FiSettings}
-                    title="No hay servicios"
-                    description="Comienza creando tu primer servicio."
-                    onAction={handleCreate}
-                    action="Crear Servicio"
-                  />
-                )}
+                <DataTable columns={tableColumns} data={filteredServices} />
               </CardContent>
             </Card>
           </TabsContent>
           <TabsContent value="grid">
-            {filteredServices.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-                {filteredServices.map((service) => (
-                  <Card
-                    key={service.id}
-                    className="overflow-hidden flex flex-col"
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-4">
-                          <Avatar className="h-12 w-12 rounded-lg">
-                            <AvatarImage
-                              src={service.image}
-                              alt={service.name}
-                              className="object-cover"
-                            />
-                            <AvatarFallback className="rounded-lg bg-gray-100">
-                              <FiTag />
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <CardTitle className="text-lg">
-                              {service.name}
-                            </CardTitle>
-                            <Badge variant="outline" className="mt-1">
-                              {service.category}
-                            </Badge>
-                          </div>
-                        </div>
-                        <Badge
-                          className={cn(
-                            "font-medium",
-                            service.isActive
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-800",
-                          )}
-                        >
-                          {service.isActive ? "Activo" : "Inactivo"}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0 flex-grow flex flex-col justify-between">
-                      <p className="text-sm text-muted-foreground mt-1 min-h-[40px]">
-                        {service.description}
-                      </p>
-                      <div className="space-y-3 mt-4">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center space-x-1 text-muted-foreground">
-                            <FiClock className="h-4 w-4" />
-                            <span>{service.durationMinutes} minutos</span>
-                          </div>
-                          <div className="flex items-center space-x-1 font-semibold text-lg">
-                            <FiDollarSign className="h-4 w-4 text-gray-400" />
-                            <span>{Number(service.price).toFixed(2)}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between pt-3 border-t">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleServiceStatus(service)}
-                          >
-                            <div className="flex items-center">
-                              {service.isActive ? (
-                                <FiToggleRight className="h-4 w-4 mr-1" />
-                              ) : (
-                                <FiToggleLeft className="h-4 w-4 mr-1" />
-                              )}{" "}
-                              {service.isActive ? "Desactivar" : "Activar"}
-                            </div>
-                          </Button>
-                          <div className="flex space-x-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openAssignDialog(service)}
-                            >
-                              <FiUsers className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(service)}
-                            >
-                              <FiEdit3 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(service.id)}
-                              className="text-red-600"
-                            >
-                              <FiTrash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4">
-                <EmptyState
-                  icon={FiSearch}
-                  title="No se encontraron servicios"
-                  description="Prueba ajustando tus términos de búsqueda."
-                />
-              </div>
-            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+              {filteredServices.map((service) => (
+                <Card
+                  key={service.id}
+                  className="overflow-hidden flex flex-col group"
+                >
+                  <div className="h-48 bg-gray-100 overflow-hidden relative">
+                    <img
+                      src={
+                        service.image ? `${API_URL}${service.image}` : undefined
+                      }
+                      alt={service.name}
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    />
+                  </div>
+                  <CardContent className="p-4 flex-grow flex flex-col">
+                    <h3 className="font-semibold">{service.name}</h3>
+                    {/* ... más detalles de la tarjeta */}
+                    <div className="mt-auto pt-4 flex justify-end space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openAssignDialog(service)}
+                      >
+                        Asignar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(service)}
+                      >
+                        Editar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
+
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader>
@@ -550,6 +486,43 @@ const Services = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div>
+              <Label htmlFor="image">Imagen del Servicio</Label>
+              <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                <div className="text-center">
+                  {serviceData.image ? (
+                    <img
+                      src={
+                        serviceData.image.startsWith("blob:")
+                          ? serviceData.image
+                          : `${API_URL}${serviceData.image}`
+                      }
+                      alt="Vista previa"
+                      className="mx-auto h-24 w-24 object-cover rounded-md"
+                    />
+                  ) : (
+                    <FiImage className="mx-auto h-12 w-12 text-gray-300" />
+                  )}
+                  <div className="mt-4 flex text-sm leading-6 text-gray-600">
+                    <Label
+                      htmlFor="file-upload"
+                      className="relative cursor-pointer rounded-md bg-white font-semibold text-violet-600 focus-within:outline-none hover:text-violet-500"
+                    >
+                      <span>Sube un archivo</span>
+                      <input
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        className="sr-only"
+                        onChange={handleFileChange}
+                        accept="image/*"
+                      />
+                    </Label>
+                    <p className="pl-1">o arrástralo aquí</p>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="name">Nombre *</Label>
@@ -637,18 +610,6 @@ const Services = () => {
                 }
               />
             </div>
-            <div>
-              <Label htmlFor="image">URL de Imagen</Label>
-              <Input
-                id="image"
-                type="url"
-                placeholder="https://ejemplo.com/imagen.jpg"
-                value={serviceData.image || ""}
-                onChange={(e) =>
-                  setServiceData({ ...serviceData, image: e.target.value })
-                }
-              />
-            </div>
             <div className="flex items-center space-x-2">
               <Switch
                 id="isActive"
@@ -671,46 +632,29 @@ const Services = () => {
         </DialogContent>
       </Dialog>
 
-      {/* --- MODAL PARA ASIGNAR EMPLEADOS --- */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
               Asignar Empleados a "{assigningService?.name}"
             </DialogTitle>
-
-            {/* --- ¡SOLUCIÓN! AÑADIR ESTA LÍNEA --- */}
-            <DialogDescription>
-              Selecciona los empleados que pueden realizar este servicio. Los
-              cambios se guardarán para futuras reservas.
-            </DialogDescription>
           </DialogHeader>
           <div className="py-4 max-h-80 overflow-y-auto space-y-2">
             {isAssigning ? (
-              <p className="text-center text-gray-500">Cargando empleados...</p>
-            ) : employeesOfBusiness.length > 0 ? (
+              <p>Cargando...</p>
+            ) : (
               employeesOfBusiness.map((emp) => (
-                <div
-                  key={emp.id}
-                  className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-100"
-                >
+                <div key={emp.id} className="flex items-center space-x-3 p-2">
                   <Checkbox
-                    id={`emp-assign-${emp.id}`}
+                    id={`emp-${emp.id}`}
                     checked={assignedEmployeeIds.has(emp.id)}
                     onCheckedChange={() => handleAssignmentChange(emp.id)}
                   />
-                  <Label
-                    htmlFor={`emp-assign-${emp.id}`}
-                    className="cursor-pointer flex-1"
-                  >
+                  <Label htmlFor={`emp-${emp.id}`}>
                     {emp.name} {emp.lastName}
                   </Label>
                 </div>
               ))
-            ) : (
-              <p className="text-sm text-center text-gray-500 py-4">
-                No hay empleados en este negocio.
-              </p>
             )}
           </div>
           <DialogFooter>
@@ -724,7 +668,7 @@ const Services = () => {
               onClick={handleSaveAssignments}
               isLoading={isAssigning}
             >
-              Guardar Asignaciones
+              Guardar
             </ActionButton>
           </DialogFooter>
         </DialogContent>

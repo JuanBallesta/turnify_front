@@ -26,8 +26,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ConfirmationModal } from "@/components/modals/ConfirmationModal";
-import { SuccessModal } from "@/components/modals/SuccessModal";
 
 // Icons
 import {
@@ -60,8 +58,9 @@ const BookAppointment = () => {
   const [viewMode, setViewMode] = useState("grid");
   const [error, setError] = useState("");
 
-  const [currentModal, setCurrentModal] = useState(null); // 'datetime', 'confirmation', 'success'
+  const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
+  const [bookingStep, setBookingStep] = useState("datetime");
   const [bookingData, setBookingData] = useState(null);
   const [appointmentNotes, setAppointmentNotes] = useState("");
   const [isConfirming, setIsConfirming] = useState(false);
@@ -72,15 +71,39 @@ const BookAppointment = () => {
       .then(([servicesData, businessesData]) => {
         setServices(servicesData);
         setBusinesses(businessesData);
+        const maxPrice =
+          servicesData.length > 0
+            ? Math.max(...servicesData.map((s) => Number(s.price)))
+            : 50000;
+        const maxDuration =
+          servicesData.length > 0
+            ? Math.max(...servicesData.map((s) => Number(s.durationMinutes)))
+            : 240;
+        setFilters({
+          ...INITIAL_FILTERS,
+          priceRange: [0, Math.ceil(maxPrice / 1000) * 1000],
+          durationRange: [0, Math.ceil(maxDuration / 15) * 15],
+        });
       })
-      .catch(() => setError("No se pudieron cargar los datos."))
+      .catch(() => setError("No se pudieron cargar los datos iniciales."))
       .finally(() => setIsLoading(false));
   }, []);
 
-  // --- FUNCIÓN DE FILTROS AÑADIDA ---
   const handleFilterChange = (filterName, value) => {
     if (filterName === "clearAll") {
-      setFilters(INITIAL_FILTERS);
+      const maxPrice =
+        services.length > 0
+          ? Math.max(...services.map((s) => Number(s.price)))
+          : 50000;
+      const maxDuration =
+        services.length > 0
+          ? Math.max(...services.map((s) => Number(s.durationMinutes)))
+          : 240;
+      setFilters({
+        ...INITIAL_FILTERS,
+        priceRange: [0, Math.ceil(maxPrice / 1000) * 1000],
+        durationRange: [0, Math.ceil(maxDuration / 15) * 15],
+      });
     } else {
       setFilters((prev) => ({ ...prev, [filterName]: value }));
     }
@@ -105,12 +128,8 @@ const BookAppointment = () => {
 
   const handleServiceSelect = (service) => {
     setSelectedService(service);
-    setCurrentModal("datetime");
-  };
-
-  const handleDateTimeComplete = (data) => {
-    setBookingData(data);
-    setCurrentModal("confirmation");
+    setBookingStep("datetime");
+    setShowBookingModal(true);
   };
 
   const handleConfirmBooking = async () => {
@@ -133,20 +152,155 @@ const BookAppointment = () => {
         notes: appointmentNotes,
       };
       await createAppointment(appointmentData);
-      setCurrentModal("success");
+      setBookingStep("success");
     } catch (err) {
-      setError(err.response?.data?.msg || "Error al crear la cita.");
+      setError(
+        err.response?.data?.msg ||
+          "Error al crear la cita. El horario puede haber sido ocupado.",
+      );
     } finally {
       setIsConfirming(false);
     }
   };
 
-  const resetFlow = () => {
-    setCurrentModal(null);
-    setSelectedService(null);
-    setBookingData(null);
-    setAppointmentNotes("");
-    setError("");
+  const handleCloseModal = () => {
+    setShowBookingModal(false);
+    setTimeout(() => {
+      setSelectedService(null);
+      setBookingData(null);
+      setBookingStep("datetime");
+      setAppointmentNotes("");
+      setError("");
+    }, 300);
+  };
+
+  const renderModalContent = () => {
+    const selectedBusiness = businesses.find(
+      (b) => b.id === selectedService?.businessId,
+    );
+
+    switch (bookingStep) {
+      case "datetime":
+        return (
+          <>
+            <div className="p-1">
+              <BookingDateTimePicker
+                service={selectedService}
+                onSelectionChange={setBookingData}
+              />
+            </div>
+            <DialogFooter className="pt-4 border-t">
+              <Button variant="outline" onClick={handleCloseModal}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => setBookingStep("confirmation")}
+                disabled={!bookingData}
+              >
+                Continuar
+              </Button>
+            </DialogFooter>
+          </>
+        );
+      case "confirmation":
+        return (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-600">Servicio:</span>
+                  <span className="font-semibold">{selectedService?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-600">
+                    Especialista:
+                  </span>
+                  <span className="font-semibold">
+                    {bookingData?.employeeName}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-600">
+                    Fecha y Hora:
+                  </span>
+                  <span className="font-semibold">
+                    {new Date(bookingData?.date).toLocaleDateString("es-ES", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                    })}
+                    , {bookingData?.time}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t pt-3 mt-3">
+                  <span className="font-semibold text-lg">Total:</span>
+                  <span className="font-semibold text-xl">
+                    ${Number(selectedService?.price).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notas adicionales (opcional)</Label>
+                <Textarea
+                  id="notes"
+                  value={appointmentNotes}
+                  onChange={(e) => setAppointmentNotes(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+            <DialogFooter className="pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setBookingStep("datetime")}
+              >
+                <FiArrowLeft className="mr-2" />
+                Volver
+              </Button>
+              <Button onClick={handleConfirmBooking} disabled={isConfirming}>
+                {isConfirming ? (
+                  <>
+                    <LoadingSpinner size="sm" className="mr-2" />
+                    Confirmando...
+                  </>
+                ) : (
+                  <>
+                    <FiCheck className="mr-2" />
+                    Confirmar Reserva
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
+        );
+      case "success":
+        return (
+          <div className="text-center space-y-6 py-8">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+              <FiCheck className="w-8 h-8 text-green-600" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold">¡Cita Confirmada!</h3>
+              <p className="text-gray-600">Tu reserva ha sido un éxito.</p>
+            </div>
+            <DialogFooter className="justify-center pt-4">
+              <Button variant="outline" onClick={handleCloseModal}>
+                Reservar Otra Cita
+              </Button>
+              <Button onClick={() => navigate("/appointments")}>
+                Ver Mis Citas
+              </Button>
+            </DialogFooter>
+          </div>
+        );
+      default:
+        return null;
+    }
   };
 
   if (isLoading)
@@ -230,47 +384,23 @@ const BookAppointment = () => {
         </div>
       </div>
 
-      {selectedService && (
-        <>
-          <Dialog
-            open={currentModal === "datetime"}
-            onOpenChange={(isOpen) => !isOpen && resetFlow()}
-          >
-            <DialogContent className="max-w-4xl">
-              <DialogHeader>
-                <DialogTitle>Reservar: {selectedService.name}</DialogTitle>
-                <DialogDescription>
-                  Selecciona un profesional, fecha y hora para tu cita.
-                </DialogDescription>
-              </DialogHeader>
-              <BookingDateTimePicker
-                service={selectedService}
-                onSelectionComplete={handleDateTimeComplete}
-              />
-            </DialogContent>
-          </Dialog>
-
-          <ConfirmationModal
-            open={currentModal === "confirmation"}
-            onOpenChange={(isOpen) => !isOpen && resetFlow()}
-            service={selectedService}
-            bookingData={bookingData}
-            onConfirm={() => handleConfirmBooking(appointmentNotes)}
-            onBack={() => setCurrentModal("datetime")}
-            isConfirming={isConfirming}
-            error={error}
-            notes={appointmentNotes}
-            setNotes={setAppointmentNotes}
-          />
-
-          <SuccessModal
-            open={currentModal === "success"}
-            onOpenChange={(isOpen) => !isOpen && resetFlow()}
-            onBookAnother={resetFlow}
-            onGoToAppointments={() => navigate("/appointments")}
-          />
-        </>
-      )}
+      <Dialog open={showBookingModal} onOpenChange={setShowBookingModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {bookingStep === "success"
+                ? "Reserva Exitosa"
+                : `Reservar: ${selectedService?.name}`}
+            </DialogTitle>
+            {bookingStep !== "success" && (
+              <DialogDescription>
+                Completa los pasos para confirmar tu reserva
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          {renderModalContent()}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

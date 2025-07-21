@@ -35,6 +35,14 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const names = name.trim().split(" ");
+    if (names.length > 1)
+      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+  };
+
   const { unreadCount } = useNotifications();
   useNotificationIntegration();
 
@@ -126,45 +134,57 @@ const Layout = ({ children }) => {
               <NotificationCenter />
 
               {/* Avatar del Usuario */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="relative h-8 w-8 rounded-full"
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user?.avatar} alt={user?.name} />
-                      <AvatarFallback className="bg-violet-100 text-violet-700">
-                        {user?.name?.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {user?.name}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user?.email}
-                      </p>
-                      <p className="text-xs text-violet-600 capitalize">
-                        {getRoleLabel(user?.role || "")}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/profile")}>
-                    <FiUser className="mr-2 h-4 w-4" />
-                    <span>Perfil</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <FiLogOut className="mr-2 h-4 w-4" />
-                    <span>Cerrar Sesión</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {user && (
+                <DropdownMenu>
+                  <span>{user.name}</span>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="relative h-10 w-10 rounded-full"
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage
+                          src={
+                            user.photo &&
+                            `${import.meta.env.VITE_API_URL}${user.photo}`
+                          }
+                          alt={user.name}
+                          className="object-cover"
+                        />
+                        <AvatarFallback>
+                          {getInitials(`${user.name} ${user.lastName}`)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {user.name} {user.lastName}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <Link to="/profile">
+                      <DropdownMenuItem>Mi Perfil</DropdownMenuItem>
+                    </Link>
+                    <Link to="/appointments">
+                      <DropdownMenuItem>Mis Citas</DropdownMenuItem>
+                    </Link>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={logout}
+                      className="text-red-600 focus:bg-red-50 focus:text-red-700"
+                    >
+                      Cerrar Sesión
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </div>
         </div>

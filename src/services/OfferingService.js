@@ -35,3 +35,24 @@ export const deleteOffering = async (id) => {
     throw error;
   }
 };
+
+export const uploadOfferingPhoto = async (offeringId, file) => {
+  const formData = new FormData();
+  // El nombre 'servicePhoto' debe coincidir con el del middleware
+  formData.append("servicePhoto", file);
+
+  try {
+    const response = await apiClient.post(
+      `/offerings/${offeringId}/photo`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
