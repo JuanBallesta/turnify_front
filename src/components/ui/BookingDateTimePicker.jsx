@@ -6,20 +6,17 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { getAvailability } from "@/services/AvailabilityService";
 import { getOfferingWithEmployees } from "@/services/AssignmentService";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils"; // Importar cn para clases condicionales
+import { cn } from "@/lib/utils";
 
-export const BookingDateTimePicker = ({
-  service,
-  onSelectionComplete,
-  onBack,
-}) => {
+export const BookingDateTimePicker = ({ service, onSelectionChange }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [employees, setEmployees] = useState([]);
-  const [selectedEmployee, setSelectedEmployee] = useState(null); // null para 'Cualquiera'
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("any"); // 'any' o el ID de un empleado
   const [availability, setAvailability] = useState([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Cargar empleados cuando el servicio cambia
   useEffect(() => {
     if (service) {
       getOfferingWithEmployees(service.id)
@@ -28,22 +25,27 @@ export const BookingDateTimePicker = ({
     }
   }, [service]);
 
+  // Cargar disponibilidad cuando cambian el servicio, la fecha o el empleado
   useEffect(() => {
     if (service && selectedDate) {
       setIsLoading(true);
-      setSelectedTimeSlot(null);
-      const dateString = selectedDate.toISOString().split("T")[0];
-      const employeeId = selectedEmployee ? selectedEmployee.id : "any";
+      setSelectedTimeSlot(null); // Reseteamos la hora seleccionada
+      onSelectionChange(null); // Notificamos al padre que no hay selección completa
 
-      getAvailability(service.id, dateString, employeeId)
+      const dateString = selectedDate.toISOString().split("T")[0];
+
+      getAvailability(service.id, dateString, selectedEmployeeId)
         .then(setAvailability)
         .finally(() => setIsLoading(false));
     }
-  }, [service, selectedDate, selectedEmployee]);
+  }, [service, selectedDate, selectedEmployeeId]);
 
+  // Función que se ejecuta al seleccionar una hora
   const handleSelectTime = (slot) => {
-    setSelectedTimeSlot(slot);
-    onSelectionComplete({
+    setSelectedTimeSlot(slot); // Actualizamos el estado local para el estilo del botón
+
+    // Notificamos al componente padre (BookAppointment) con la selección completa
+    onSelectionChange({
       date: selectedDate,
       time: slot.time,
       employeeId: slot.employeeId,
@@ -52,7 +54,7 @@ export const BookingDateTimePicker = ({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
       {/* --- COLUMNA IZQUIERDA: CALENDARIO Y PROFESIONALES --- */}
       <div className="space-y-6">
         <div>
@@ -61,10 +63,10 @@ export const BookingDateTimePicker = ({
           </Label>
           <div className="flex flex-wrap gap-3 mt-3">
             <div
-              onClick={() => setSelectedEmployee(null)}
+              onClick={() => setSelectedEmployeeId("any")}
               className={cn(
-                "p-2 border rounded-lg flex-1 min-w-[150px] cursor-pointer transition-all",
-                !selectedEmployee
+                "p-2 border rounded-lg flex-1 min-w-[150px] cursor-pointer transition-all justify-center",
+                selectedEmployeeId === "any"
                   ? "bg-violet-600 text-white border-violet-600"
                   : "bg-white hover:border-violet-400",
               )}
@@ -74,16 +76,20 @@ export const BookingDateTimePicker = ({
             {employees.map((emp) => (
               <div
                 key={emp.id}
-                onClick={() => setSelectedEmployee(emp)}
+                onClick={() => setSelectedEmployeeId(emp.id.toString())}
                 className={cn(
                   "p-2 border rounded-lg flex items-center space-x-3 flex-1 min-w-[150px] cursor-pointer transition-all",
-                  selectedEmployee?.id === emp.id
+                  selectedEmployeeId === emp.id.toString()
                     ? "bg-violet-600 text-white border-violet-600"
                     : "bg-white hover:border-violet-400",
                 )}
               >
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={emp.photo} />
+                  <AvatarImage
+                    src={
+                      emp.photo && `${import.meta.env.VITE_API_URL}${emp.photo}`
+                    }
+                  />
                   <AvatarFallback>{emp.name?.[0]}</AvatarFallback>
                 </Avatar>
                 <span className="font-medium">{emp.name}</span>
@@ -98,12 +104,15 @@ export const BookingDateTimePicker = ({
           <Calendar
             mode="single"
             selected={selectedDate}
-            onSelect={setSelectedDate}
+            onSelect={(newDate) => {
+              if (newDate) {
+                setSelectedDate(newDate);
+              }
+            }}
             disabled={(date) =>
               date < new Date(new Date().setDate(new Date().getDate() - 1))
             }
             className="p-0 mt-2"
-            // --- ESTILOS PARA AGRANDAR EL CALENDARIO ---
             classNames={{
               months:
                 "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",

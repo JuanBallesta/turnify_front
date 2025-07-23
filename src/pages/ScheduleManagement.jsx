@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import Layout from "@/components/Layout";
 import { getEmployees } from "@/services/EmployeeService";
 import { getSchedules, updateSchedules } from "@/services/ScheduleService";
 
@@ -50,7 +49,6 @@ const ScheduleManagement = () => {
   const canSelectEmployee =
     user?.role === "superuser" || user?.role === "administrator";
 
-  // Cargar la lista de empleados que el usuario actual puede gestionar
   useEffect(() => {
     if (!user) return;
 
@@ -58,12 +56,10 @@ const ScheduleManagement = () => {
       const businessId = user.role === "administrator" ? user.businessId : null;
       getEmployees(businessId).then(setEmployees).catch(console.error);
     } else if (user.role === "employee") {
-      // Si es un empleado, se auto-selecciona y no necesita la lista
       setSelectedEmployeeId(user.id.toString());
     }
   }, [user, canSelectEmployee]);
 
-  // Cargar los horarios del empleado seleccionado
   useEffect(() => {
     if (selectedEmployeeId) {
       setIsLoading(true);
@@ -124,7 +120,7 @@ const ScheduleManagement = () => {
     try {
       await updateSchedules(selectedEmployeeId, schedulesToSave);
       setSuccessMessage("Horarios guardados exitosamente.");
-      setTimeout(() => setSuccessMessage(""), 3000); // Ocultar mensaje después de 3s
+      setTimeout(() => setSuccessMessage(""), 3000);
     } catch (error) {
       alert("Error al guardar los horarios.");
       console.error(error);
@@ -144,8 +140,6 @@ const ScheduleManagement = () => {
               : "Revisa y ajusta tu disponibilidad semanal."
           }
         />
-
-        {/* El selector de empleados solo se muestra si el usuario tiene permisos */}
         {canSelectEmployee && (
           <Card>
             <CardHeader>
@@ -170,8 +164,6 @@ const ScheduleManagement = () => {
             </CardContent>
           </Card>
         )}
-
-        {/* La tarjeta de horarios se muestra si hay un empleado seleccionado */}
         {selectedEmployeeId ? (
           <Card>
             <CardHeader>
@@ -271,7 +263,6 @@ const ScheduleManagement = () => {
             </CardContent>
           </Card>
         ) : (
-          // Mensaje para cuando un admin/superuser no ha seleccionado a nadie
           canSelectEmployee && (
             <Card>
               <CardContent className="p-6 text-center text-gray-500">

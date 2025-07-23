@@ -22,8 +22,6 @@ import { FiLock, FiUser, FiEye, FiEyeOff } from "react-icons/fi";
 const AdminLogin = () => {
   const [formData, setFormData] = useState({ userName: "", password: "" });
   const [error, setError] = useState("");
-
-  // --- 1. AÑADIMOS EL ESTADO PARA LA VISIBILIDAD ---
   const [showPassword, setShowPassword] = useState(false);
 
   const { loginAdmin, isLoading } = useAuth();

@@ -163,7 +163,6 @@ export const AppProvider = ({ children }) => {
     [businesses, employees],
   );
 
-  // CAMBIO CLAVE: Envolver el objeto `value` en useMemo
   const value = useMemo(
     () => ({
       services,

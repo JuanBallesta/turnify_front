@@ -10,12 +10,9 @@ import {
   FiImage,
 } from "react-icons/fi";
 
-// 1. Definimos la URL base del backend
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export const ServiceCard = ({ service, business, onBookService }) => {
-  // 2. Construimos la URL completa para la imagen
-  // Si service.image existe y no es ya una URL completa, le añadimos el prefijo.
   const imageUrl = service.image
     ? service.image.startsWith("http")
       ? service.image
@@ -33,7 +30,6 @@ export const ServiceCard = ({ service, business, onBookService }) => {
     <Card className="h-full flex flex-col overflow-hidden group transition-shadow hover:shadow-lg">
       <div className="h-48 bg-gray-100 overflow-hidden relative">
         {imageUrl ? (
-          // 3. Usamos la nueva variable imageUrl
           <img
             src={imageUrl}
             alt={service.name}
