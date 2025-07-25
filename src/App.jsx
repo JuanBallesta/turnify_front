@@ -1,6 +1,12 @@
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+} from "react-router-dom"; // <-- 1. IMPORTAMOS Outlet
 
 // Context Providers
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -15,7 +21,7 @@ import Layout from "@/components/Layout";
 
 // Pages
 import Login from "@/pages/Login";
-import AdminLogin from "./pages/AdminLogin"; // Asegúrate de que esta ruta sea correcta
+import AdminLogin from "./pages/AdminLogin";
 import Register from "@/pages/Register";
 import Dashboard from "@/pages/Dashboard";
 import Appointments from "@/pages/Appointments";
@@ -24,13 +30,24 @@ import Profile from "@/pages/Profile";
 import Services from "@/pages/Services";
 import Unauthorized from "@/pages/Unauthorized";
 import NotFound from "@/pages/NotFound";
-import TestPage from "@/pages/TestPage";
-import NotificationTest from "@/pages/NotificationTest";
 import Businesses from "./pages/Businesses";
 import Employees from "./pages/Employees";
 import ScheduleManagement from "./pages/ScheduleManagement";
 
 const queryClient = new QueryClient();
+
+// --- 2. CREAMOS EL COMPONENTE DE LAYOUT PROTEGIDO ---
+// Este componente actúa como una plantilla para todas las páginas que necesitan
+// estar autenticadas y dentro del layout principal.
+const ProtectedLayout = ({ allowedRoles }) => {
+  return (
+    <ProtectedRoute allowedRoles={allowedRoles}>
+      <Layout>
+        <Outlet /> {/* <-- Outlet renderizará la página hija que coincida */}
+      </Layout>
+    </ProtectedRoute>
+  );
+};
 
 const App = () => {
   return (
@@ -41,125 +58,66 @@ const App = () => {
             <NotificationProvider>
               <BrowserRouter>
                 <Routes>
-                  {/* --- RUTAS PÚBLICAS --- */}
+                  {/* --- RUTAS PÚBLICAS (Sin cambios) --- */}
                   <Route path="/login" element={<Login />} />
-
                   <Route path="/admin/login" element={<AdminLogin />} />
-
                   <Route path="/register" element={<Register />} />
                   <Route path="/unauthorized" element={<Unauthorized />} />
-
-                  {/* --- REDIRECCIÓN DE LA RUTA RAÍZ --- */}
                   <Route
                     path="/"
                     element={<Navigate to="/dashboard" replace />}
                   />
+                  <Route path="*" element={<NotFound />} />
 
-                  {/* --- RUTAS PROTEGIDAS --- */}
-                  <Route
-                    path="/dashboard"
-                    element={
-                      <ProtectedRoute>
-                        <Layout>
-                          <Dashboard />
-                        </Layout>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/appointments"
-                    element={
-                      <ProtectedRoute>
-                        <Layout>
-                          <Appointments />
-                        </Layout>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/profile"
-                    element={
-                      <ProtectedRoute>
-                        <Layout>
-                          <Profile />
-                        </Layout>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/notifications-test"
-                    element={
-                      <ProtectedRoute>
-                        <Layout>
-                          <NotificationTest />
-                        </Layout>
-                      </ProtectedRoute>
-                    }
-                  />
+                  {/* --- 3. REESTRUCTURAMOS LAS RUTAS PROTEGIDAS --- */}
 
-                  {/* --- RUTAS ESPECÍFICAS POR ROL --- */}
+                  {/* Rutas para todos los usuarios autenticados */}
+                  <Route element={<ProtectedLayout />}>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/appointments" element={<Appointments />} />
+                    <Route path="/profile" element={<Profile />} />
+                  </Route>
+
+                  {/* Rutas solo para clientes */}
                   <Route
-                    path="/book"
-                    element={
-                      <ProtectedRoute allowedRoles={["client"]}>
-                        <Layout>
-                          <BookAppointment />
-                        </Layout>
-                      </ProtectedRoute>
-                    }
-                  />
+                    element={<ProtectedLayout allowedRoles={["client"]} />}
+                  >
+                    <Route path="/book" element={<BookAppointment />} />
+                  </Route>
+
+                  {/* Rutas para empleados y superiores */}
                   <Route
-                    path="/services"
                     element={
-                      <ProtectedRoute
-                        allowedRoles={["administrator", "superuser"]}
-                      >
-                        <Layout>
-                          <Services />
-                        </Layout>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/schedules"
-                    element={
-                      <ProtectedRoute
+                      <ProtectedLayout
                         allowedRoles={[
                           "employee",
                           "administrator",
                           "superuser",
                         ]}
-                      >
-                        <Layout>
-                          <ScheduleManagement />
-                        </Layout>
-                      </ProtectedRoute>
+                      />
                     }
-                  />
-                  <Route
-                    path="/employees"
-                    element={
-                      <ProtectedRoute
-                        allowedRoles={["administrator", "superuser"]}
-                      >
-                        <Layout>
-                          <Employees />
-                        </Layout>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/businesses"
-                    element={
-                      <ProtectedRoute allowedRoles={["superuser"]}>
-                        <Layout>
-                          <Businesses />
-                        </Layout>
-                      </ProtectedRoute>
-                    }
-                  />
+                  >
+                    <Route path="/schedules" element={<ScheduleManagement />} />
+                  </Route>
 
-                  <Route path="*" element={<NotFound />} />
+                  {/* Rutas para administradores y superiores */}
+                  <Route
+                    element={
+                      <ProtectedLayout
+                        allowedRoles={["administrator", "superuser"]}
+                      />
+                    }
+                  >
+                    <Route path="/services" element={<Services />} />
+                    <Route path="/employees" element={<Employees />} />
+                  </Route>
+
+                  {/* Rutas solo para superusuarios */}
+                  <Route
+                    element={<ProtectedLayout allowedRoles={["superuser"]} />}
+                  >
+                    <Route path="/businesses" element={<Businesses />} />
+                  </Route>
                 </Routes>
               </BrowserRouter>
             </NotificationProvider>

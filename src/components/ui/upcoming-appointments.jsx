@@ -16,22 +16,39 @@ import { cn } from "@/lib/utils";
 
 // --- 1. NUEVO COMPONENTE DE AYUDA PARA TRADUCIR Y DAR ESTILO AL ESTADO ---
 const AppointmentStatusBadge = ({ status }) => {
-  const statusStyles = {
-    scheduled: { label: "Programada", className: "bg-blue-100 text-blue-800" },
+  const statusInfo = {
+    scheduled: {
+      label: "Programada",
+      className: "border-blue-200 bg-blue-100 text-blue-800 hover:bg-blue-200",
+    },
     completed: {
       label: "Completada",
-      className: "bg-green-100 text-green-800",
+      className:
+        "border-green-200 bg-green-100 text-green-800 hover:bg-green-200",
     },
-    cancelled: { label: "Cancelada", className: "bg-red-100 text-red-800" },
+    cancelled: {
+      label: "Cancelada",
+      className: "border-red-200 bg-red-100 text-red-800 hover:bg-red-200",
+    },
+    "no-show": {
+      label: "No Asistió",
+      className:
+        "border-yellow-200 bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+    },
   };
-  const currentStatus = statusStyles[status] || {
+  const current = statusInfo[status] || {
     label: status,
     className: "bg-gray-100 text-gray-800",
   };
-
   return (
-    <Badge className={cn("font-medium", currentStatus.className)}>
-      {currentStatus.label}
+    <Badge
+      className={cn(
+        "font-medium border",
+        current.className,
+        "transition-colors",
+      )}
+    >
+      {current.label}
     </Badge>
   );
 };
