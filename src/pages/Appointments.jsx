@@ -1,20 +1,15 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   getMyAppointments,
   updateAppointment,
+  getAppointmentStats,
 } from "@/services/AppointmentService";
 
 // UI Components
 import { PageHeader } from "@/components/ui/page-header";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +51,9 @@ import {
   FiCheck,
   FiX,
   FiPlus,
+  FiDollarSign,
   FiUserX,
+  FiMapPin,
 } from "react-icons/fi";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -65,155 +62,137 @@ const AppointmentStatusBadge = ({ status }) => {
   const statusInfo = {
     scheduled: {
       label: "Programada",
-      className:
-        "border-transparent bg-blue-100 text-blue-800 hover:bg-blue-200",
+      className: "bg-blue-100 text-blue-800 hover:bg-blue-200",
     },
     completed: {
       label: "Completada",
-      className:
-        "border-transparent bg-green-100 text-green-800 hover:bg-green-200",
+      className: "bg-green-100 text-green-800 hover:bg-green-200",
     },
     cancelled: {
       label: "Cancelada",
-      className: "border-transparent bg-red-100 text-red-800 hover:bg-red-200",
+      className: "bg-red-100 text-red-800 hover:bg-red-200",
     },
     "no-show": {
       label: "No Asistió",
-      className:
-        "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+      className: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
     },
   };
-  const current = statusInfo[status] || {
+
+  const currentStatus = statusInfo[status] || {
     label: status,
     className: "bg-gray-100 text-gray-800 hover:bg-gray-200",
   };
 
   return (
-    <Badge className={cn("font-semibold transition-colors", current.className)}>
-      {current.label}
+    <Badge
+      className={cn(
+        "font-medium border-transparent transition-colors",
+        currentStatus.className,
+      )}
+    >
+      {currentStatus.label}
     </Badge>
   );
 };
-
 const Appointments = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const [appointments, setAppointments] = useState([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    scheduled: 0,
+    completed: 0,
+    cancelled: 0,
+    "no-show": 0,
+  });
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all"); // No implementado en backend aún
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-
-  const loadAppointments = (pageToLoad) => {
+  const loadAppointments = (page = 1, status = "all", search = "") => {
     setIsLoading(true);
     setError(null);
-    getMyAppointments(pageToLoad, 6)
-      .then((response) => {
-        setAppointments(response.data.appointments || []);
-        setTotalPages(response.data.totalPages || 1);
-        setCurrentPage(response.data.currentPage || 1);
-        setTotalItems(response.data.totalItems || 0);
+    getMyAppointments(page, status, search)
+      .then((data) => {
+        setAppointments(data.appointments || []);
+        setPagination({
+          currentPage: data.currentPage,
+          totalPages: data.totalPages,
+        });
       })
       .catch(() => setError("No se pudieron cargar las citas."))
       .finally(() => setIsLoading(false));
   };
 
+  const loadStats = () => {
+    getAppointmentStats()
+      .then(setStats)
+      .catch(() => setError("No se pudieron cargar las estadísticas."));
+  };
+
   useEffect(() => {
     if (user) {
-      loadAppointments(currentPage);
+      loadAppointments(1, activeTab, searchTerm);
+      loadStats();
     }
-  }, [user, currentPage]);
+  }, [user, activeTab, searchTerm]);
 
-  const filteredAppointments = useMemo(() => {
-    if (!Array.isArray(appointments)) return [];
-
-    return appointments.filter((apt) => {
-      const lowerSearch = searchTerm.toLowerCase();
-      const matchesSearch =
-        (apt.offering?.name.toLowerCase() || "").includes(lowerSearch) ||
-        `${apt.client?.name || ""} ${apt.client?.lastName || ""}`
-          .trim()
-          .toLowerCase()
-          .includes(lowerSearch) ||
-        `${apt.employee?.name || ""} ${apt.employee?.lastName || ""}`
-          .trim()
-          .toLowerCase()
-          .includes(lowerSearch);
-
-      const matchesStatus =
-        statusFilter === "all" || apt.status === statusFilter;
-
-      let matchesDate = true;
-      if (dateFilter !== "all") {
-        const appointmentDate = new Date(apt.startTime);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (dateFilter === "today")
-          matchesDate = appointmentDate.toDateString() === today.toDateString();
-        else if (dateFilter === "upcoming")
-          matchesDate = appointmentDate >= today;
-        else if (dateFilter === "past") matchesDate = appointmentDate < today;
-      }
-
-      return matchesSearch && matchesStatus && matchesDate;
-    });
-  }, [appointments, searchTerm, statusFilter, dateFilter]);
-
-  const stats = useMemo(
-    () => ({
-      total: totalItems,
-      scheduled: appointments.filter((a) => a.status === "scheduled").length,
-      completed: appointments.filter((a) => a.status === "completed").length,
-      cancelled: appointments.filter((a) => a.status === "cancelled").length,
-    }),
-    [totalItems, appointments],
-  );
+  const handlePageChange = (newPage) => {
+    if (
+      newPage >= 1 &&
+      newPage <= pagination.totalPages &&
+      newPage !== pagination.currentPage
+    ) {
+      loadAppointments(newPage, activeTab, searchTerm);
+    }
+  };
 
   const handleStatusUpdate = async (appointmentId, newStatus) => {
     try {
       await updateAppointment(appointmentId, { status: newStatus });
-      loadAppointments(currentPage);
+      // Recargar todo para que ambas listas y stats se actualicen
+      loadAppointments(pagination.currentPage, activeTab, searchTerm);
+      loadStats();
     } catch (error) {
       alert("Error al actualizar el estado de la cita.");
     }
   };
 
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
-      setCurrentPage(newPage);
-    }
+  const formatDate = (dateStr) =>
+    new Date(dateStr).toLocaleDateString("es-ES", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  const formatTime = (dateStr) =>
+    new Date(dateStr).toLocaleTimeString("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const names = name.trim().split(" ");
+    if (names.length > 1)
+      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+    return name.substring(0, 2).toUpperCase();
   };
 
-  const getStatusLabel = (status) =>
-    ({
-      scheduled: "Programada",
-      completed: "Completada",
-      cancelled: "Cancelada",
-      "no-show": "No Asistió",
-    })[status] || status;
-  const getStatusColor = (status) =>
-    ({
-      scheduled: "bg-blue-100 text-blue-800",
-      completed: "bg-green-100 text-green-800",
-      cancelled: "bg-red-100 text-red-800",
-      "no-show": "bg-yellow-100 text-yellow-800",
-    })[status] || "bg-gray-100 text-gray-800";
-
-  if (isLoading && appointments.length === 0)
+  if (!user)
     return (
       <>
         <div className="p-6 text-center">Cargando...</div>
       </>
     );
-  if (error)
+  if (error && appointments.length === 0)
     return (
       <>
         <div className="p-6 text-center text-red-500">{error}</div>
@@ -231,7 +210,7 @@ const Appointments = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             title="Total de Citas"
-            value={totalItems}
+            value={stats.total}
             icon={FiCalendar}
           />
           <StatsCard
@@ -247,8 +226,8 @@ const Appointments = () => {
             variant="success"
           />
           <StatsCard
-            title="Canceladas"
-            value={stats.cancelled}
+            title="Canceladas / No Asistió"
+            value={stats.cancelled + (stats["no-show"] || 0)}
             icon={FiX}
             variant="danger"
           />
@@ -259,34 +238,28 @@ const Appointments = () => {
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <SearchBox
-                  placeholder="Buscar en la página actual..."
+                  placeholder="Buscar por servicio, cliente..."
                   value={searchTerm}
                   onValueChange={setSearchTerm}
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Filtrar por estado..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los Estados</SelectItem>
-                  <SelectItem value="scheduled">Programada</SelectItem>
-                  <SelectItem value="completed">Completada</SelectItem>
-                  <SelectItem value="cancelled">Cancelada</SelectItem>
-                  <SelectItem value="no-show">No Asistió</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Filtrar por fecha..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las Fechas</SelectItem>
-                  <SelectItem value="today">Hoy</SelectItem>
-                  <SelectItem value="upcoming">Próximas</SelectItem>
-                  <SelectItem value="past">Pasadas</SelectItem>
-                </SelectContent>
-              </Select>
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList>
+                  <TabsTrigger value="all">Todas ({stats.total})</TabsTrigger>
+                  <TabsTrigger value="scheduled">
+                    Programadas ({stats.scheduled})
+                  </TabsTrigger>
+                  <TabsTrigger value="completed">
+                    Completadas ({stats.completed})
+                  </TabsTrigger>
+                  <TabsTrigger value="cancelled">
+                    Canceladas ({stats.cancelled})
+                  </TabsTrigger>
+                  <TabsTrigger value="no-show">
+                    No Asistió ({stats["no-show"] || 0})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
           </CardContent>
         </Card>
@@ -295,27 +268,14 @@ const Appointments = () => {
           <div className="text-center p-8">
             <LoadingSpinner />
           </div>
-        ) : filteredAppointments.length === 0 ? (
+        ) : appointments.length === 0 ? (
           <EmptyState
             title="No se encontraron citas"
-            description="Prueba ajustando los filtros."
+            description="No hay citas que coincidan con los filtros actuales."
           />
         ) : (
           <div className="space-y-4">
-            {filteredAppointments.map((appointment) => {
-              const now = new Date();
-              const appointmentTime = new Date(appointment.startTime);
-              const hasStarted = now >= appointmentTime;
-              const isOwnerOrAdmin =
-                user.role !== "employee" || user.id === appointment.employeeId;
-              const canCancel = isOwnerOrAdmin && !hasStarted;
-
-              const canMarkStatus = user.role !== "client" && hasStarted;
-
-              const employeeName =
-                `${appointment.employee?.name || ""} ${appointment.employee?.lastName || ""}`.trim();
-              const clientName =
-                `${appointment.client?.name || ""} ${appointment.client?.lastName || ""}`.trim();
+            {appointments.map((appointment) => {
               const mainContact =
                 user.role === "client"
                   ? appointment.employee
@@ -323,19 +283,16 @@ const Appointments = () => {
               const photoUrl = mainContact?.photo
                 ? `${API_URL}${mainContact.photo}`
                 : undefined;
-              const getInitials = (name) => {
-                if (!name) return "?";
-                const n = name.trim().split(" ");
-                return n.length > 1
-                  ? `${n[0][0]}${n[n.length - 1][0]}`.toUpperCase()
-                  : n[0].substring(0, 2).toUpperCase();
-              };
-
+              const canCancel =
+                (new Date(appointment.startTime) - new Date()) /
+                  (1000 * 60 * 60) >
+                24;
+              const hasStarted = new Date() >= new Date(appointment.startTime);
               return (
                 <Card key={appointment.id}>
-                  <CardContent className="p-4 flex items-center justify-between">
+                  <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center space-x-4">
-                      <Avatar className="h-12 w-12">
+                      <Avatar className="h-16 w-16">
                         <AvatarImage src={photoUrl} />
                         <AvatarFallback>
                           {getInitials(
@@ -343,147 +300,132 @@ const Appointments = () => {
                           )}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="font-semibold">
+                      <div className="space-y-1">
+                        <p className="font-bold text-lg">
                           {appointment.offering?.name}
                         </p>
-                        <p className="text-sm text-gray-500">
-                          {new Date(appointment.startTime).toLocaleString(
-                            "es-ES",
-                            { dateStyle: "long", timeStyle: "short" },
-                          )}
-                          hs
+                        <p className="text-sm text-gray-500 flex items-center">
+                          <FiCalendar className="w-4 h-4 mr-2" />
+                          {formatDate(appointment.startTime)} a las{" "}
+                          {formatTime(appointment.startTime)}
                         </p>
-                        <div className="text-sm text-gray-500 mt-1">
-                          {user.role !== "client" && (
-                            <span className="flex items-center">
-                              <FiUser className="h-3 w-3 mr-1.5" />
-                              Cliente:{" "}
-                              <strong className="ml-1 font-medium text-gray-600">
-                                {clientName || "N/A"}
-                              </strong>
-                            </span>
-                          )}
-                          {user.role !== "employee" && (
-                            <span className="flex items-center">
-                              <FiUser className="h-3 w-3 mr-1.5" />
-                              Profesional:{" "}
-                              <strong className="ml-1 font-medium text-gray-600">
-                                {employeeName || "N/A"}
-                              </strong>
-                            </span>
-                          )}
-                        </div>
+                        <p className="text-sm text-gray-500 flex items-center">
+                          <FiUser className="w-4 h-4 mr-2" />
+                          {user.role === "client"
+                            ? `Con ${appointment.employee?.name} ${appointment.employee?.lastName}`
+                            : `Cliente: ${appointment.client?.name} ${appointment.client?.lastName}`}
+                        </p>
+                        <p className="text-sm text-gray-500 flex items-center">
+                          <FiMapPin className="w-4 h-4 mr-2" />
+                          {appointment.offering?.business?.name}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-4">
+
+                    <div className="flex flex-col items-end space-y-3 w-full sm:w-auto">
                       <AppointmentStatusBadge status={appointment.status} />
 
-                      {user.role !== "client" &&
-                        appointment.status === "scheduled" && (
-                          <div className="flex space-x-1">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span tabIndex="0">
-                                    <Button
-                                      size="icon"
-                                      variant="outline"
-                                      onClick={() =>
-                                        canMarkStatus &&
-                                        handleStatusUpdate(
-                                          appointment.id,
-                                          "completed",
-                                        )
-                                      }
-                                      disabled={!canMarkStatus}
-                                      className="text-green-600 border-green-200 hover:bg-green-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <FiCheck />
-                                    </Button>
-                                  </span>
-                                </TooltipTrigger>
-                                {!canMarkStatus && (
-                                  <TooltipContent>
-                                    <p>
-                                      Solo se puede marcar después de la hora de
-                                      la cita.
-                                    </p>
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
+                      <div className="flex space-x-2">
+                        {user.role !== "client" &&
+                          appointment.status === "scheduled" && (
+                            <>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span tabIndex="0">
+                                      <Button
+                                        size="icon"
+                                        variant="outline"
+                                        onClick={() =>
+                                          hasStarted &&
+                                          handleStatusUpdate(
+                                            appointment.id,
+                                            "completed",
+                                          )
+                                        }
+                                        disabled={!hasStarted}
+                                        className="text-green-600 border-green-200 hover:bg-green-500 hover:text-white disabled:hover:bg-transparent disabled:hover:text-green-600"
+                                      >
+                                        <FiCheck />
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  {!hasStarted && (
+                                    <TooltipContent>
+                                      <p>
+                                        Solo se puede marcar como completada
+                                        después de la hora de inicio.
+                                      </p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              </TooltipProvider>
 
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span tabIndex="0">
-                                    <Button
-                                      size="icon"
-                                      variant="outline"
-                                      onClick={() =>
-                                        canMarkStatus &&
-                                        handleStatusUpdate(
-                                          appointment.id,
-                                          "no-show",
-                                        )
-                                      }
-                                      disabled={!canMarkStatus}
-                                      className="text-yellow-600 border-yellow-200 hover:bg-yellow-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <FiUserX />
-                                    </Button>
-                                  </span>
-                                </TooltipTrigger>
-                                {!canMarkStatus && (
-                                  <TooltipContent>
-                                    <p>
-                                      Solo se puede marcar después de la hora de
-                                      la cita.
-                                    </p>
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                        )}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span tabIndex="0">
+                                      <Button
+                                        size="icon"
+                                        variant="outline"
+                                        onClick={() =>
+                                          hasStarted &&
+                                          handleStatusUpdate(
+                                            appointment.id,
+                                            "no-show",
+                                          )
+                                        }
+                                        disabled={!hasStarted}
+                                        className="text-yellow-600 border-yellow-200 hover:bg-yellow-500 hover:text-white disabled:hover:bg-transparent disabled:hover:text-yellow-600"
+                                      >
+                                        <FiUserX />
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  {!hasStarted && (
+                                    <TooltipContent>
+                                      <p>
+                                        Solo se puede marcar como "No Asistió"
+                                        después de la hora de inicio.
+                                      </p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              </TooltipProvider>
+                            </>
+                          )}
 
-                      {/* Acción de Cancelar */}
-                      {appointment.status === "scheduled" && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span tabIndex="0">
-                                <Button
-                                  size="icon"
-                                  variant="outline"
-                                  onClick={() =>
-                                    canCancel &&
-                                    handleStatusUpdate(
-                                      appointment.id,
-                                      "cancelled",
-                                    )
-                                  }
-                                  disabled={!canCancel}
-                                  className="text-red-600 border-red-200 hover:bg-red-500 hover:text-white transition-colors disabled:hover:bg-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  <FiX />
-                                </Button>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {canCancel ? (
-                                <p>Cancelar Cita</p>
-                              ) : (
-                                <p>
-                                  No se puede cancelar una cita que ya ha
-                                  comenzado.
-                                </p>
+                        {appointment.status === "scheduled" && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span tabIndex="0">
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() =>
+                                      canCancel &&
+                                      handleStatusUpdate(
+                                        appointment.id,
+                                        "cancelled",
+                                      )
+                                    }
+                                    disabled={!canCancel}
+                                  >
+                                    <FiX className="h-4 w-4 mr-1" />
+                                    Cancelar
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              {!canCancel && (
+                                <TooltipContent>
+                                  <p>No se puede cancelar con menos de 24hs.</p>
+                                </TooltipContent>
                               )}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -492,7 +434,7 @@ const Appointments = () => {
           </div>
         )}
 
-        {totalPages > 1 && (
+        {!isLoading && pagination.totalPages > 1 && (
           <div className="flex justify-center pt-4">
             <Pagination>
               <PaginationContent>
@@ -501,12 +443,12 @@ const Appointments = () => {
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      handlePageChange(currentPage - 1);
+                      handlePageChange(pagination.currentPage - 1);
                     }}
-                    disabled={currentPage === 1}
+                    disabled={pagination.currentPage === 1}
                   />
                 </PaginationItem>
-                {[...Array(totalPages).keys()].map((pageNumber) => (
+                {[...Array(pagination.totalPages).keys()].map((pageNumber) => (
                   <PaginationItem key={pageNumber + 1}>
                     <PaginationLink
                       href="#"
@@ -514,7 +456,7 @@ const Appointments = () => {
                         e.preventDefault();
                         handlePageChange(pageNumber + 1);
                       }}
-                      isActive={currentPage === pageNumber + 1}
+                      isActive={pagination.currentPage === pageNumber + 1}
                     >
                       {pageNumber + 1}
                     </PaginationLink>
@@ -525,9 +467,9 @@ const Appointments = () => {
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      handlePageChange(currentPage + 1);
+                      handlePageChange(pagination.currentPage + 1);
                     }}
-                    disabled={currentPage === totalPages}
+                    disabled={pagination.currentPage === pagination.totalPages}
                   />
                 </PaginationItem>
               </PaginationContent>
