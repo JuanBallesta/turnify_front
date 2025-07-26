@@ -4,6 +4,7 @@ export const getMyAppointments = async (
   page = 1,
   status = "all",
   search = "",
+  dateFilter = "all",
 ) => {
   try {
     const params = new URLSearchParams({
@@ -11,6 +12,7 @@ export const getMyAppointments = async (
       limit: 10,
       status,
       search,
+      dateFilter,
     });
     const response = await apiClient.get(`/appointments?${params.toString()}`);
     return response.data.data;

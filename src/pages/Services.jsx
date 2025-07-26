@@ -450,7 +450,6 @@ const Services = () => {
                   </div>
                   <CardContent className="p-4 flex-grow flex flex-col">
                     <h3 className="font-semibold">{service.name}</h3>
-                    {/* ... más detalles de la tarjeta */}
                     <div className="mt-auto pt-4 flex justify-end space-x-2">
                       <Button
                         variant="outline"
@@ -466,6 +465,9 @@ const Services = () => {
                       >
                         Editar
                       </Button>
+                      <StatusBadge
+                        status={service.isActive ? "active" : "inactive"}
+                      />
                     </div>
                   </CardContent>
                 </Card>

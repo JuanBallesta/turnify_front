@@ -115,12 +115,17 @@ const Appointments = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
-  const [dateFilter, setDateFilter] = useState("all"); // No implementado en backend aún
+  const [dateFilter, setDateFilter] = useState("all");
 
-  const loadAppointments = (page = 1, status = "all", search = "") => {
+  const loadAppointments = (
+    page = 1,
+    status = "all",
+    search = "",
+    dateParam = "all",
+  ) => {
     setIsLoading(true);
     setError(null);
-    getMyAppointments(page, status, search)
+    getMyAppointments(page, status, search, dateParam)
       .then((data) => {
         setAppointments(data.appointments || []);
         setPagination({
@@ -140,10 +145,10 @@ const Appointments = () => {
 
   useEffect(() => {
     if (user) {
-      loadAppointments(1, activeTab, searchTerm);
+      loadAppointments(1, activeTab, searchTerm, dateFilter);
       loadStats();
     }
-  }, [user, activeTab, searchTerm]);
+  }, [user, activeTab, searchTerm, dateFilter]);
 
   const handlePageChange = (newPage) => {
     if (
@@ -151,14 +156,13 @@ const Appointments = () => {
       newPage <= pagination.totalPages &&
       newPage !== pagination.currentPage
     ) {
-      loadAppointments(newPage, activeTab, searchTerm);
+      loadAppointments(newPage, activeTab, searchTerm, dateFilter);
     }
   };
 
   const handleStatusUpdate = async (appointmentId, newStatus) => {
     try {
       await updateAppointment(appointmentId, { status: newStatus });
-      // Recargar todo para que ambas listas y stats se actualicen
       loadAppointments(pagination.currentPage, activeTab, searchTerm);
       loadStats();
     } catch (error) {
@@ -236,6 +240,17 @@ const Appointments = () => {
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row gap-4">
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las Fechas</SelectItem>
+                  <SelectItem value="today">Hoy</SelectItem>
+                  <SelectItem value="upcoming">Próximas</SelectItem>
+                  <SelectItem value="past">Pasadas</SelectItem>
+                </SelectContent>
+              </Select>
               <div className="flex-1">
                 <SearchBox
                   placeholder="Buscar por servicio, cliente..."
