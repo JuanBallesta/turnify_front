@@ -18,6 +18,7 @@ import {
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { SearchBox } from "@/components/ui/search-box";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +58,9 @@ import {
   FiGrid,
   FiList,
   FiUsers,
+  FiDollarSign,
+  FiToggleLeft,
+  FiToggleRight,
 } from "react-icons/fi";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -131,8 +135,12 @@ const getColumns = (handleEdit, handleDelete, handleAssign, isSuperUser) => [
     title: "Acciones",
     headerClassName: "text-right",
     render: (_, row) => (
-      <div className="flex justify-end items-center">
-        <Button size="sm" className="mr-2" onClick={() => handleAssign(row)}>
+      <div className="flex justify-end items-center space-x-0 md:space-x-1">
+        <Button
+          size="sm"
+          className="hidden md:flex mr-2"
+          onClick={() => handleAssign(row)}
+        >
           <FiUsers className="mr-2 h-4 w-4" /> Asignar
         </Button>
         <Button variant="ghost" size="icon" onClick={() => handleEdit(row)}>
@@ -246,7 +254,6 @@ const Services = () => {
     try {
       let servicePayload = { ...serviceData };
       delete servicePayload.image;
-
       let savedService;
       if (editingService) {
         const response = await updateOffering(
@@ -258,11 +265,9 @@ const Services = () => {
         const response = await createOffering(servicePayload);
         savedService = response.data;
       }
-
       if (selectedFile) {
         await uploadOfferingPhoto(savedService.id, selectedFile);
       }
-
       setShowDialog(false);
       loadData();
     } catch (err) {
@@ -282,15 +287,6 @@ const Services = () => {
       } catch (err) {
         alert(err.response?.data?.msg || "Error al eliminar el servicio.");
       }
-    }
-  };
-
-  const toggleServiceStatus = async (service) => {
-    try {
-      await updateOffering(service.id, { isActive: !service.isActive });
-      loadData();
-    } catch (err) {
-      alert("Error al cambiar el estado del servicio.");
     }
   };
 
@@ -362,7 +358,7 @@ const Services = () => {
 
   return (
     <>
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         <PageHeader
           title="Gestión de Servicios"
           actions={
@@ -376,93 +372,135 @@ const Services = () => {
           onValueChange={setActiveView}
           className="w-full"
         >
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <SearchBox
               value={searchTerm}
               onValueChange={setSearchTerm}
-              placeholder="Buscar por nombre o categoría..."
-              className="w-full max-w-sm"
+              placeholder="Buscar por nombre..."
+              className="w-full sm:max-w-xs"
             />
-            <TabsList>
-              <TabsTrigger value="list">
-                <FiList />
-              </TabsTrigger>
+            <TabsList className="self-end sm:self-center">
               <TabsTrigger value="grid">
                 <FiGrid />
               </TabsTrigger>
+              <TabsTrigger value="list">
+                <FiList />
+              </TabsTrigger>
             </TabsList>
           </div>
-          <TabsContent value="list">
-            <Card className="mt-4">
+          <TabsContent value="grid" className="mt-4">
+            {filteredServices.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredServices.map((service) => (
+                  <Card
+                    key={service.id}
+                    className="overflow-hidden flex flex-col group"
+                  >
+                    <div className="h-48 bg-gray-100 overflow-hidden relative">
+                      <img
+                        src={
+                          service.image
+                            ? `${API_URL}${service.image}`
+                            : undefined
+                        }
+                        alt={service.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <CardTitle className="text-lg flex-1">
+                          {service.name}
+                        </CardTitle>
+                        <StatusBadge status={service.isActive} />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0 flex-grow flex flex-col">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span className="flex items-center">
+                          <FiClock className="h-4 w-4 mr-1" />
+                          {service.durationMinutes} min
+                        </span>
+                        <span className="font-semibold text-base text-gray-900 flex items-center">
+                          <FiDollarSign className="h-4 w-4 mr-1" />
+                          {Number(service.price).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between pt-3 border-t mt-auto">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleServiceStatus(service)}
+                        >
+                          {service.isActive ? (
+                            <FiToggleRight className="h-4 w-4 mr-1" />
+                          ) : (
+                            <FiToggleLeft className="h-4 w-4 mr-1" />
+                          )}
+                          {service.isActive ? "Desactivar" : "Activar"}
+                        </Button>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openAssignDialog(service)}
+                          >
+                            <FiUsers className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(service)}
+                          >
+                            <FiEdit3 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-600"
+                            onClick={() => handleDelete(service.id)}
+                          >
+                            <FiTrash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="No hay servicios"
+                onAction={handleCreate}
+                action="Crear Servicio"
+              />
+            )}
+          </TabsContent>
+          <TabsContent value="list" className="mt-4">
+            <Card>
               <CardHeader>
                 <CardTitle>Lista de Servicios</CardTitle>
               </CardHeader>
               <CardContent>
-                <DataTable columns={tableColumns} data={filteredServices} />
+                {filteredServices.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <DataTable columns={tableColumns} data={filteredServices} />
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="No hay servicios"
+                    onAction={handleCreate}
+                    action="Crear Servicio"
+                  />
+                )}
               </CardContent>
             </Card>
-          </TabsContent>
-          <TabsContent value="grid">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-              {filteredServices.map((service) => (
-                <Card
-                  key={service.id}
-                  className="overflow-hidden flex flex-col group"
-                >
-                  <div className="h-48 bg-gray-100 overflow-hidden relative">
-                    <img
-                      src={
-                        service.image ? `${API_URL}${service.image}` : undefined
-                      }
-                      alt={service.name}
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                    />
-                    <div className="absolute top-3 right-3">
-                      <StatusBadge status={service.isActive} />
-                    </div>
-                  </div>
-                  <CardContent className="p-4 flex-grow flex flex-col">
-                    <Badge variant="secondary" className="self-start">
-                      {service.category}
-                    </Badge>
-                    <h3 className="font-semibold text-lg mt-2">
-                      {service.name}
-                    </h3>
-                    <div className="flex justify-between items-center text-sm text-gray-500 mt-2">
-                      <span className="flex items-center">
-                        <FiClock className="mr-1.5" />
-                        {service.durationMinutes} min
-                      </span>
-                      <span className="font-bold text-base text-gray-800">
-                        ${Number(service.price).toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="mt-auto pt-4 flex justify-end space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openAssignDialog(service)}
-                      >
-                        Asignar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(service)}
-                      >
-                        Editar
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
           </TabsContent>
         </Tabs>
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingService ? "Editar Servicio" : "Crear Servicio"}
@@ -619,7 +657,7 @@ const Services = () => {
       </Dialog>
 
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
               Asignar Empleados a "{assigningService?.name}"
