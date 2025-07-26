@@ -7,7 +7,6 @@ import { getDashboardData } from "@/services/DashboardService";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatsCard } from "@/components/ui/stats-card";
 import { DataTable } from "@/components/ui/data-table";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { InfoCard } from "@/components/ui/info-card";
 import { ActionButton } from "@/components/ui/action-button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -30,7 +29,7 @@ import {
   FiSettings, // <-- IMPORTACIÓN AÑADIDA
 } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/utils";
 
 // --- Sub-componente para el Dashboard de Cliente ---
@@ -89,9 +88,7 @@ const ClientDashboard = ({
         description="Revisa tus citas y tu historial"
         actions={
           <Link to="/appointments">
-            <ActionButton variant="outline" icon={FiCalendar}>
-              Ver Citas
-            </ActionButton>
+            <ActionButton icon={FiCalendar}>Ver Citas</ActionButton>
           </Link>
         }
       />
@@ -100,9 +97,7 @@ const ClientDashboard = ({
         description="Actualiza tu información personal"
         actions={
           <Link to="/profile">
-            <ActionButton variant="outline" icon={FiUser}>
-              Editar Perfil
-            </ActionButton>
+            <ActionButton icon={FiUser}>Editar Perfil</ActionButton>
           </Link>
         }
       />
@@ -255,9 +250,7 @@ const AdminDashboard = ({
         description="Crea y edita los servicios"
         actions={
           <Link to="/services">
-            <ActionButton variant="outline" icon={FiEdit}>
-              Servicios
-            </ActionButton>
+            <ActionButton icon={FiEdit}>Servicios</ActionButton>
           </Link>
         }
       />
@@ -266,9 +259,7 @@ const AdminDashboard = ({
         description="Administra tu equipo de trabajo"
         actions={
           <Link to="/employees">
-            <ActionButton variant="outline" icon={FiUsers}>
-              Empleados
-            </ActionButton>
+            <ActionButton icon={FiUsers}>Empleados</ActionButton>
           </Link>
         }
       />
@@ -394,7 +385,7 @@ const Dashboard = () => {
     {
       key: "status",
       title: "Estado",
-      render: (value) => <AppointmentStatusBadge status={value} />,
+      render: (value) => <StatusBadge status={value} />,
     },
   ];
 
@@ -453,47 +444,6 @@ const Dashboard = () => {
       </>
     );
   }
-
-  const AppointmentStatusBadge = ({ status }) => {
-    const statusInfo = {
-      scheduled: {
-        label: "Programada",
-        className:
-          "border-blue-200 bg-blue-100 text-blue-800 hover:bg-blue-200",
-      },
-      completed: {
-        label: "Completada",
-        className:
-          "border-green-200 bg-green-100 text-green-800 hover:bg-green-200",
-      },
-      cancelled: {
-        label: "Cancelada",
-        className: "border-red-200 bg-red-100 text-red-800 hover:bg-red-200",
-      },
-      "no-show": {
-        label: "No Asistió",
-        className:
-          "border-yellow-200 bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
-      },
-    };
-
-    const current = statusInfo[status] || {
-      label: status,
-      className: "border-gray-200 bg-gray-100 text-gray-800 hover:bg-gray-200",
-    };
-    return (
-      <Badge
-        className={cn(
-          "font-medium border",
-          current.className,
-          "transition-colors",
-        )}
-      >
-        {current.label}
-      </Badge>
-    );
-  };
-
   return (
     <>
       <div className="p-6 space-y-6">

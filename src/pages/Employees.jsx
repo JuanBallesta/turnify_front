@@ -33,6 +33,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 // Icons
 import {
@@ -286,15 +287,7 @@ export default function Employees() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              className={
-                                employee.isActive
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                              }
-                            >
-                              {employee.isActive ? "Activo" : "Inactivo"}
-                            </Badge>
+                            <StatusBadge status={employee.isActive} />
                           </TableCell>
                           <TableCell className="text-right">
                             <Button

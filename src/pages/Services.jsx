@@ -1,9 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  getBusinesses,
-  getAllBusinessesForSelect,
-} from "@/services/BusinessService";
+import { getAllBusinessesForSelect } from "@/services/BusinessService";
 import {
   getOfferings,
   createOffering,
@@ -21,14 +18,7 @@ import {
 import { PageHeader } from "@/components/ui/page-header";
 import { DataTable } from "@/components/ui/data-table";
 import { SearchBox } from "@/components/ui/search-box";
-import { EmptyState } from "@/components/ui/empty-state";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -54,27 +44,21 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 // Icons
 import {
   FiPlus,
   FiEdit3,
   FiTrash2,
-  FiSearch,
-  FiSettings,
-  FiDollarSign,
   FiClock,
   FiTag,
   FiImage,
   FiGrid,
   FiList,
-  FiToggleLeft,
-  FiToggleRight,
   FiUsers,
 } from "react-icons/fi";
 
-// Definimos la URL base del backend fuera del componente
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const getColumns = (handleEdit, handleDelete, handleAssign, isSuperUser) => [
@@ -140,16 +124,7 @@ const getColumns = (handleEdit, handleDelete, handleAssign, isSuperUser) => [
   {
     key: "isActive",
     title: "Estado",
-    render: (val) => (
-      <Badge
-        className={cn(
-          "font-medium",
-          val ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800",
-        )}
-      >
-        {val ? "Activo" : "Inactivo"}
-      </Badge>
-    ),
+    render: (value) => <StatusBadge status={value} />,
   },
   {
     key: "actions",
@@ -157,12 +132,7 @@ const getColumns = (handleEdit, handleDelete, handleAssign, isSuperUser) => [
     headerClassName: "text-right",
     render: (_, row) => (
       <div className="flex justify-end items-center">
-        <Button
-          variant="outline"
-          size="sm"
-          className="mr-2"
-          onClick={() => handleAssign(row)}
-        >
+        <Button size="sm" className="mr-2" onClick={() => handleAssign(row)}>
           <FiUsers className="mr-2 h-4 w-4" /> Asignar
         </Button>
         <Button variant="ghost" size="icon" onClick={() => handleEdit(row)}>
@@ -275,7 +245,7 @@ const Services = () => {
     setIsSaving(true);
     try {
       let servicePayload = { ...serviceData };
-      delete servicePayload.image; // No enviamos la URL de vista previa
+      delete servicePayload.image;
 
       let savedService;
       if (editingService) {
@@ -447,9 +417,26 @@ const Services = () => {
                       alt={service.name}
                       className="w-full h-full object-cover transition-transform group-hover:scale-105"
                     />
+                    <div className="absolute top-3 right-3">
+                      <StatusBadge status={service.isActive} />
+                    </div>
                   </div>
                   <CardContent className="p-4 flex-grow flex flex-col">
-                    <h3 className="font-semibold">{service.name}</h3>
+                    <Badge variant="secondary" className="self-start">
+                      {service.category}
+                    </Badge>
+                    <h3 className="font-semibold text-lg mt-2">
+                      {service.name}
+                    </h3>
+                    <div className="flex justify-between items-center text-sm text-gray-500 mt-2">
+                      <span className="flex items-center">
+                        <FiClock className="mr-1.5" />
+                        {service.durationMinutes} min
+                      </span>
+                      <span className="font-bold text-base text-gray-800">
+                        ${Number(service.price).toFixed(2)}
+                      </span>
+                    </div>
                     <div className="mt-auto pt-4 flex justify-end space-x-2">
                       <Button
                         variant="outline"
@@ -465,9 +452,6 @@ const Services = () => {
                       >
                         Editar
                       </Button>
-                      <StatusBadge
-                        status={service.isActive ? "active" : "inactive"}
-                      />
                     </div>
                   </CardContent>
                 </Card>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
@@ -9,10 +9,8 @@ import {
 
 // UI Components
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -22,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
-import { cn } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -31,7 +28,7 @@ import {
 } from "@/components/ui/tooltip";
 import { StatsCard } from "@/components/ui/stats-card";
 import { SearchBox } from "@/components/ui/search-box";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Pagination,
   PaginationContent,
@@ -41,59 +38,21 @@ import {
   PaginationNext,
 } from "@/components/ui/pagination";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 // Icons
 import {
-  FiSearch,
   FiCalendar,
   FiClock,
   FiUser,
   FiCheck,
   FiX,
-  FiPlus,
-  FiDollarSign,
   FiUserX,
   FiMapPin,
 } from "react-icons/fi";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-const AppointmentStatusBadge = ({ status }) => {
-  const statusInfo = {
-    scheduled: {
-      label: "Programada",
-      className: "bg-blue-100 text-blue-800 hover:bg-blue-200",
-    },
-    completed: {
-      label: "Completada",
-      className: "bg-green-100 text-green-800 hover:bg-green-200",
-    },
-    cancelled: {
-      label: "Cancelada",
-      className: "bg-red-100 text-red-800 hover:bg-red-200",
-    },
-    "no-show": {
-      label: "No Asistió",
-      className: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
-    },
-  };
-
-  const currentStatus = statusInfo[status] || {
-    label: status,
-    className: "bg-gray-100 text-gray-800 hover:bg-gray-200",
-  };
-
-  return (
-    <Badge
-      className={cn(
-        "font-medium border-transparent transition-colors",
-        currentStatus.className,
-      )}
-    >
-      {currentStatus.label}
-    </Badge>
-  );
-};
 const Appointments = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -338,8 +297,7 @@ const Appointments = () => {
                     </div>
 
                     <div className="flex flex-col items-end space-y-3 w-full sm:w-auto">
-                      <AppointmentStatusBadge status={appointment.status} />
-
+                      <StatusBadge status={appointment.status} />
                       <div className="flex space-x-2">
                         {user.role !== "client" &&
                           appointment.status === "scheduled" && (
