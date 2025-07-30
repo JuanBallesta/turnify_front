@@ -58,8 +58,8 @@ export const AuthProvider = ({ children }) => {
     async (userData) => {
       setIsLoading(true);
       try {
-        await apiClient.post("/api/users", userData);
-        return await loginClient(userData.username, userData.password);
+        await apiClient.post("/users", userData);
+        return await loginClient(userData.userName, userData.password);
       } catch (error) {
         throw error;
       } finally {

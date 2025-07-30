@@ -80,7 +80,11 @@ const App = () => {
 
                   {/* Rutas solo para clientes */}
                   <Route
-                    element={<ProtectedLayout allowedRoles={["client"]} />}
+                    element={
+                      <ProtectedLayout
+                        allowedRoles={["client", "employee", "administrator"]}
+                      />
+                    }
                   >
                     <Route path="/book" element={<BookAppointment />} />
                   </Route>
