@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import apiClient from "@/services/api";
-
-// Importamos las funciones de validación centralizadas
+import { uploadProfilePhoto } from "@/services/ProfileService";
 import { validatePassword, getPasswordStrength } from "@/lib/validators";
 
 // UI Components
+
 import { PageHeader } from "@/components/ui/page-header";
 import {
   Card,
@@ -31,8 +31,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { ProfilePhotoUpload } from "../components/ui/ProfilePhotoUpload";
+import { ProfilePhotoUpload } from "@/components/ui/ProfilePhotoUpload";
 import { Textarea } from "@/components/ui/textarea";
+import { EmptyState } from "@/components/ui/empty-state";
 
 // Icons
 import {
@@ -50,19 +51,17 @@ import {
   FiFileText,
 } from "react-icons/fi";
 
-// Asumimos que tienes un componente para las estadísticas
-const ProfileStats = ({ user }) => {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Actividad Reciente</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p>Estadísticas de actividad próximamente.</p>
-      </CardContent>
-    </Card>
-  );
-};
+// Asumimos que tienes un componente para las estadísticas de perfil
+const ProfileStats = () => (
+  <Card>
+    <CardHeader>
+      <CardTitle>Actividad</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <p>Estadísticas de actividad del usuario próximamente.</p>
+    </CardContent>
+  </Card>
+);
 
 const Profile = () => {
   const {
@@ -82,6 +81,7 @@ const Profile = () => {
   const [profileErrors, setProfileErrors] = useState({});
   const [profileSuccess, setProfileSuccess] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordData, setPasswordData] = useState({
@@ -116,6 +116,19 @@ const Profile = () => {
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
     setProfileData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleProfilePhotoSelect = async (file) => {
+    if (!user) return;
+    setIsUploading(true);
+    try {
+      const response = await uploadProfilePhoto(user.id, user.role, file);
+      updateUser({ photo: response.data.photoUrl });
+    } catch (error) {
+      alert("Error al subir la foto de perfil.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -167,16 +180,13 @@ const Profile = () => {
     const errors = {};
     if (!passwordData.currentPassword)
       errors.currentPassword = "La contraseña actual es requerida.";
-
     const newPassValidation = validatePassword(passwordData.newPassword);
     if (!newPassValidation.isValid) {
       errors.newPassword = newPassValidation.errors[0];
     }
-
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       errors.confirmPassword = "Las contraseñas no coinciden.";
     }
-
     if (Object.keys(errors).length > 0) {
       setPasswordErrors(errors);
       return;
@@ -237,9 +247,9 @@ const Profile = () => {
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile">Información Personal</TabsTrigger>
-            <TabsTrigger value="activity">Actividad</TabsTrigger>
+            {/* <TabsTrigger value="activity">Actividad</TabsTrigger> */}
             <TabsTrigger value="security">Seguridad</TabsTrigger>
-            <TabsTrigger value="preferences">Preferencias</TabsTrigger>
+            {/* <TabsTrigger value="preferences">Preferencias</TabsTrigger> */}
           </TabsList>
 
           <TabsContent value="profile" className="space-y-6">
@@ -250,9 +260,8 @@ const Profile = () => {
                     <ProfilePhotoUpload
                       currentPhoto={user.photo}
                       displayName={`${user.name} ${user.lastName}`}
-                      onPhotoUpdate={(newPhotoUrl) =>
-                        updateUser({ photo: newPhotoUrl })
-                      }
+                      onFileSelect={handleProfilePhotoSelect}
+                      isUploading={isUploading}
                     />
                     <div>
                       <CardTitle className="text-2xl">
@@ -403,24 +412,6 @@ const Profile = () => {
                       Cambiar Contraseña
                     </Button>
                   </div>
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <FiShield className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium">
-                          Verificación en Dos Pasos
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          Próximamente disponible
-                        </p>
-                      </div>
-                    </div>
-                    <Button variant="outline" disabled>
-                      Configurar
-                    </Button>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -431,18 +422,14 @@ const Profile = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <FiSettings className="w-5 h-5" />
-                  <span>Preferencias de Usuario</span>
+                  <span>Preferencias</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-12">
-                  <FiSettings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold">Próximamente</h3>
-                  <p className="text-gray-600">
-                    Las preferencias de usuario estarán disponibles en una
-                    próxima actualización.
-                  </p>
-                </div>
+                <EmptyState
+                  title="Próximamente"
+                  description="Las preferencias de usuario estarán disponibles en una futura actualización."
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -588,7 +575,7 @@ const Profile = () => {
                 )}
 
                 <FormField
-                  label="Confirmar Nueva Contraseña"
+                  label="Confirmar Contraseña"
                   htmlFor="confirmPassword"
                   required
                   error={passwordErrors.confirmPassword}

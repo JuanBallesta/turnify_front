@@ -1,8 +1,9 @@
 import apiClient from "./api";
 
-export const getOfferings = async () => {
+export const getOfferings = async (context = "management") => {
   try {
-    const response = await apiClient.get("/offerings");
+    // Añadimos el parámetro de contexto a la URL
+    const response = await apiClient.get(`/offerings?context=${context}`);
     return response.data.data || [];
   } catch (error) {
     throw error;

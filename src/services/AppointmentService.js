@@ -5,6 +5,7 @@ export const getMyAppointments = async (
   status = "all",
   search = "",
   dateFilter = "all",
+  view = "business",
 ) => {
   try {
     const params = new URLSearchParams({
@@ -13,6 +14,7 @@ export const getMyAppointments = async (
       status,
       search,
       dateFilter,
+      view,
     });
     const response = await apiClient.get(`/appointments?${params.toString()}`);
     return response.data.data;
@@ -50,9 +52,16 @@ export const updateAppointment = async (appointmentId, updateData) => {
   }
 };
 
-export const getAppointmentStats = async () => {
+export const getAppointmentStats = async (view) => {
   try {
-    const response = await apiClient.get("/appointments/stats");
+    const params = new URLSearchParams();
+    if (view) {
+      params.append("view", view);
+    }
+
+    const response = await apiClient.get(
+      `/appointments/stats?${params.toString()}`,
+    );
     return response.data.data;
   } catch (error) {
     throw error;

@@ -12,6 +12,15 @@ export const getBusinesses = async (page = 1, limit = 6) => {
   }
 };
 
+export const getOneBusiness = async (id) => {
+  try {
+    const response = await apiClient.get(`/businesses/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 export const getAllBusinessesForSelect = async () => {
   try {
     const response = await apiClient.get("/businesses/all");
@@ -60,6 +69,23 @@ export const deleteBusiness = async (id) => {
       `Error al eliminar negocio ${id}:`,
       error.response?.data || error.message,
     );
+    throw error;
+  }
+};
+
+export const uploadBusinessLogo = async (businessId, file) => {
+  const formData = new FormData();
+  formData.append("profilePhoto", file); // El campo debe coincidir con el de multer
+  try {
+    const response = await apiClient.post(
+      `/businesses/${businessId}/logo`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    return response.data;
+  } catch (error) {
     throw error;
   }
 };

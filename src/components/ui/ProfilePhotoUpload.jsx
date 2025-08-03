@@ -3,39 +3,31 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "./loading-spinner";
 import { FiCamera } from "react-icons/fi";
-import { uploadProfilePhoto } from "@/services/ProfileService";
-import { useAuth } from "@/contexts/AuthContext";
 
 export const ProfilePhotoUpload = ({
   currentPhoto,
-  displayName, // <-- Usaremos este prop para el nombre completo
-  onPhotoUpdate,
+  displayName,
+  onFileSelect,
+  isUploading = false,
 }) => {
-  const { user } = useAuth();
-  const [isUploading, setIsUploading] = useState(false);
   const [preview, setPreview] = useState(null);
   const fileInputRef = useRef(null);
 
-  const handleFileChange = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (!file) {
+      setPreview(null);
+      return;
+    }
+
+    // Muestra una vista previa local
     const previewUrl = URL.createObjectURL(file);
     setPreview(previewUrl);
-    setIsUploading(true);
 
-    try {
-      if (!user) throw new Error("Usuario no autenticado");
-      const response = await uploadProfilePhoto(user.id, user.role, file);
-
-      onPhotoUpdate(response.data.photoUrl);
-      setPreview(null);
-    } catch (error) {
-      console.error("Error al subir imagen:", error.response?.data || error);
-      alert("Error al subir la imagen. Por favor, inténtalo de nuevo.");
-      setPreview(null);
-    } finally {
-      setIsUploading(false);
+    if (typeof onFileSelect === "function") {
+      onFileSelect(file);
     }
   };
 
@@ -45,7 +37,7 @@ export const ProfilePhotoUpload = ({
 
   const getInitials = (name) => {
     if (!name || typeof name !== "string") return "?";
-    const names = name.trim().split(" ").filter(Boolean); // Filtra espacios extra
+    const names = name.trim().split(" ").filter(Boolean);
     if (names.length > 1) {
       return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }
@@ -54,6 +46,9 @@ export const ProfilePhotoUpload = ({
     }
     return "?";
   };
+
+  const finalImageSrc =
+    preview || (currentPhoto ? `${API_URL}${currentPhoto}` : undefined);
 
   return (
     <div className="relative">
@@ -66,10 +61,7 @@ export const ProfilePhotoUpload = ({
       />
       <Avatar className="h-24 w-24 border-2 border-white shadow-md">
         <AvatarImage
-          src={
-            preview ||
-            (currentPhoto && `${import.meta.env.VITE_API_URL}${currentPhoto}`)
-          }
+          src={finalImageSrc}
           alt={displayName}
           className="object-cover"
         />

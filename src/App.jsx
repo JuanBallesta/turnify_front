@@ -6,7 +6,7 @@ import {
   Route,
   Navigate,
   Outlet,
-} from "react-router-dom"; // <-- 1. IMPORTAMOS Outlet
+} from "react-router-dom";
 
 // Context Providers
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -33,17 +33,16 @@ import NotFound from "@/pages/NotFound";
 import Businesses from "./pages/Businesses";
 import Employees from "./pages/Employees";
 import ScheduleManagement from "./pages/ScheduleManagement";
+import BusinessProfileSettings from "./pages/BusinessProfileSettings";
+import PublicProfilePage from "./pages/PublicProfilePage";
 
 const queryClient = new QueryClient();
 
-// --- 2. CREAMOS EL COMPONENTE DE LAYOUT PROTEGIDO ---
-// Este componente actúa como una plantilla para todas las páginas que necesitan
-// estar autenticadas y dentro del layout principal.
 const ProtectedLayout = ({ allowedRoles }) => {
   return (
     <ProtectedRoute allowedRoles={allowedRoles}>
       <Layout>
-        <Outlet /> {/* <-- Outlet renderizará la página hija que coincida */}
+        <Outlet />
       </Layout>
     </ProtectedRoute>
   );
@@ -58,7 +57,7 @@ const App = () => {
             <NotificationProvider>
               <BrowserRouter>
                 <Routes>
-                  {/* --- RUTAS PÚBLICAS (Sin cambios) --- */}
+                  {/* --- RUTAS PÚBLICAS --- */}
                   <Route path="/login" element={<Login />} />
                   <Route path="/admin/login" element={<AdminLogin />} />
                   <Route path="/register" element={<Register />} />
@@ -68,8 +67,7 @@ const App = () => {
                     element={<Navigate to="/dashboard" replace />}
                   />
                   <Route path="*" element={<NotFound />} />
-
-                  {/* --- 3. REESTRUCTURAMOS LAS RUTAS PROTEGIDAS --- */}
+                  <Route path="/b/:slug" element={<PublicProfilePage />} />
 
                   {/* Rutas para todos los usuarios autenticados */}
                   <Route element={<ProtectedLayout />}>
@@ -104,7 +102,7 @@ const App = () => {
                     <Route path="/schedules" element={<ScheduleManagement />} />
                   </Route>
 
-                  {/* Rutas para administradores y superiores */}
+                  {/* Rutas para administradores y superuser */}
                   <Route
                     element={
                       <ProtectedLayout
@@ -115,6 +113,16 @@ const App = () => {
                     <Route path="/services" element={<Services />} />
                     <Route path="/employees" element={<Employees />} />
                   </Route>
+                  <Route
+                    path="/business-settings"
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["administrator", "superuser"]}
+                      >
+                        <BusinessProfileSettings />
+                      </ProtectedRoute>
+                    }
+                  ></Route>
 
                   {/* Rutas solo para superusuarios */}
                   <Route

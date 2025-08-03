@@ -1,155 +1,193 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { getAvailability } from "@/services/AvailabilityService";
 import { getOfferingWithEmployees } from "@/services/AssignmentService";
-import { Label } from "@/components/ui/label";
+import { FiArrowLeft, FiUser } from "react-icons/fi";
 import { cn } from "@/lib/utils";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
 export const BookingDateTimePicker = ({ service, onSelectionChange }) => {
+  const [step, setStep] = useState("professional"); // professional -> date -> time
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [employees, setEmployees] = useState([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState("any"); // 'any' o el ID de un empleado
+  const [selectedEmployee, setSelectedEmployee] = useState(null); // null para 'Cualquier Profesional'
   const [availability, setAvailability] = useState([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Cargar empleados cuando el servicio cambia
+  // Cargar los empleados que pueden realizar el servicio
   useEffect(() => {
     if (service) {
+      setIsLoading(true);
       getOfferingWithEmployees(service.id)
         .then((details) => setEmployees(details.employees || []))
-        .catch(() => setEmployees([]));
+        .catch(() => setEmployees([]))
+        .finally(() => setIsLoading(false));
     }
   }, [service]);
 
-  // Cargar disponibilidad cuando cambian el servicio, la fecha o el empleado
+  // Cargar la disponibilidad cuando se tienen los datos necesarios
   useEffect(() => {
-    if (service && selectedDate) {
+    if (step === "time" && service && selectedDate) {
       setIsLoading(true);
-      setSelectedTimeSlot(null); // Reseteamos la hora seleccionada
-      onSelectionChange(null); // Notificamos al padre que no hay selección completa
-
+      setSelectedTimeSlot(null);
+      onSelectionChange(null);
       const dateString = selectedDate.toISOString().split("T")[0];
+      const employeeId = selectedEmployee ? selectedEmployee.id : "any";
 
-      getAvailability(service.id, dateString, selectedEmployeeId)
+      getAvailability(service.id, dateString, employeeId)
         .then(setAvailability)
         .finally(() => setIsLoading(false));
     }
-  }, [service, selectedDate, selectedEmployeeId]);
+  }, [step, service, selectedDate, selectedEmployee]);
 
-  // Función que se ejecuta al seleccionar una hora
-  const handleSelectTime = (slot) => {
-    setSelectedTimeSlot(slot); // Actualizamos el estado local para el estilo del botón
-
-    // Notificamos al componente padre (BookAppointment) con la selección completa
-    onSelectionChange({
-      date: selectedDate,
-      time: slot.time,
-      employeeId: slot.employeeId,
-      employeeName: slot.employeeName,
-    });
+  const handleSelectEmployee = (emp) => {
+    setSelectedEmployee(emp);
+    setStep("date");
   };
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      {/* --- COLUMNA IZQUIERDA: CALENDARIO Y PROFESIONALES --- */}
-      <div className="space-y-6">
-        <div>
-          <Label className="text-base font-semibold text-gray-800">
-            1. Elige un Profesional
-          </Label>
-          <div className="flex flex-wrap gap-3 mt-3">
-            <div
-              onClick={() => setSelectedEmployeeId("any")}
+  const handleSelectDate = (date) => {
+    if (date) {
+      setSelectedDate(date);
+      setStep("time");
+    }
+  };
+
+  const handleSelectTime = (slot) => {
+    setSelectedTimeSlot(slot);
+    if (typeof onSelectionChange === "function") {
+      onSelectionChange({
+        date: selectedDate,
+        time: slot.time,
+        employeeId: slot.employeeId,
+        employeeName: slot.employeeName,
+      });
+    }
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const n = name.trim().split(" ");
+    if (n.length > 1) return `${n[0][0]}${n[n.length - 1][0]}`.toUpperCase();
+    return n[0].substring(0, 2).toUpperCase();
+  };
+
+  // --- RENDERIZADO POR PASOS ---
+
+  if (step === "professional") {
+    return (
+      <div className="space-y-4 p-1">
+        <h4 className="font-semibold text-lg text-center">
+          Paso 1: Elige un Profesional
+        </h4>
+        {isLoading ? (
+          <div className="text-center p-8">
+            <LoadingSpinner />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              onClick={() => handleSelectEmployee(null)}
               className={cn(
-                "p-2 border rounded-lg flex-1 min-w-[150px] cursor-pointer transition-all justify-center",
-                selectedEmployeeId === "any"
-                  ? "bg-violet-600 text-white border-violet-600"
-                  : "bg-white hover:border-violet-400",
+                "p-4 border rounded-lg text-left flex items-center space-x-3 transition-all hover:shadow-md",
+                !selectedEmployee
+                  ? "border-violet-500 bg-violet-50"
+                  : "bg-white hover:border-gray-300",
               )}
             >
-              <p className="font-semibold text-center">Cualquier Profesional</p>
-            </div>
-            {employees.map((emp) => (
-              <div
-                key={emp.id}
-                onClick={() => setSelectedEmployeeId(emp.id.toString())}
-                className={cn(
-                  "p-2 border rounded-lg flex items-center space-x-3 flex-1 min-w-[150px] cursor-pointer transition-all",
-                  selectedEmployeeId === emp.id.toString()
-                    ? "bg-violet-600 text-white border-violet-600"
-                    : "bg-white hover:border-violet-400",
-                )}
-              >
-                <Avatar className="h-8 w-8">
-                  <AvatarImage
-                    src={
-                      emp.photo && `${import.meta.env.VITE_API_URL}${emp.photo}`
-                    }
-                  />
-                  <AvatarFallback>{emp.name?.[0]}</AvatarFallback>
-                </Avatar>
-                <span className="font-medium">{emp.name}</span>
+              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                <FiUser className="w-6 h-6 text-gray-500" />
               </div>
-            ))}
+              <span className="font-medium">Cualquier Profesional</span>
+            </button>
+            {employees.map((emp) => {
+              const photoUrl = emp.photo ? `${API_URL}${emp.photo}` : undefined;
+              return (
+                <button
+                  key={emp.id}
+                  onClick={() => handleSelectEmployee(emp)}
+                  className={cn(
+                    "p-4 border rounded-lg text-left flex items-center space-x-3 transition-all hover:shadow-md",
+                    selectedEmployee?.id === emp.id
+                      ? "border-violet-500 bg-violet-50"
+                      : "bg-white hover:border-gray-300",
+                  )}
+                >
+                  <Avatar className="w-12 h-12">
+                    <AvatarImage src={photoUrl} />
+                    <AvatarFallback>
+                      {getInitials(`${emp.name} ${emp.lastName}`)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">
+                      {emp.name} {emp.lastName}
+                    </h4>
+                  </div>
+                </button>
+              );
+            })}
           </div>
+        )}
+      </div>
+    );
+  }
+
+  if (step === "date") {
+    return (
+      <div className="space-y-4 p-1">
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setStep("professional")}
+            className="mr-2"
+          >
+            <FiArrowLeft /> Volver a Profesionales
+          </Button>
         </div>
-        <div>
-          <Label className="text-base font-semibold text-gray-800">
-            2. Elige una Fecha
-          </Label>
+        <h4 className="font-semibold text-lg text-center">
+          Paso 2: Elige una Fecha
+        </h4>
+        <div className="flex justify-center">
           <Calendar
             mode="single"
             selected={selectedDate}
-            onSelect={(newDate) => {
-              if (newDate) {
-                setSelectedDate(newDate);
-              }
-            }}
+            onSelect={handleSelectDate}
             disabled={(date) =>
               date < new Date(new Date().setDate(new Date().getDate() - 1))
             }
-            className="p-0 mt-2"
-            classNames={{
-              months:
-                "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-              month: "space-y-4",
-              caption: "flex justify-center pt-1 relative items-center",
-              caption_label: "text-lg font-medium",
-              nav: "space-x-1 flex items-center",
-              nav_button:
-                "h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100",
-              table: "w-full border-collapse space-y-1",
-              head_row: "flex",
-              head_cell:
-                "text-gray-500 rounded-md w-10 font-normal text-[0.8rem]",
-              row: "flex w-full mt-2",
-              cell: "h-10 w-10 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-gray-100 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-              day: "h-10 w-10 p-0 font-normal aria-selected:opacity-100",
-              day_selected:
-                "bg-violet-600 text-white hover:bg-violet-600 hover:text-white focus:bg-violet-600 focus:text-white",
-              day_today: "bg-gray-100 text-gray-900",
-              day_outside: "text-gray-400 opacity-50",
-              day_disabled: "text-gray-400 opacity-50",
-            }}
           />
         </div>
       </div>
+    );
+  }
 
-      {/* --- COLUMNA DERECHA: HORARIOS --- */}
-      <div className="md:border-l md:pl-8">
-        <Label className="text-base font-semibold text-gray-800">
-          3. Elige un Horario
-        </Label>
-        <p className="text-sm text-gray-500 mt-1">
-          Disponibilidad para el{" "}
+  if (step === "time") {
+    return (
+      <div className="space-y-4 p-1">
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setStep("date")}
+            className="mr-2"
+          >
+            <FiArrowLeft /> Volver a Fecha
+          </Button>
+        </div>
+        <h4 className="font-semibold text-lg text-center">
+          Paso 3: Elige un Horario
+        </h4>
+        <p className="text-sm text-gray-500 text-center">
+          Para el{" "}
           {selectedDate.toLocaleDateString("es-ES", {
             weekday: "long",
             day: "numeric",
-            month: "long",
           })}
         </p>
         {isLoading ? (
@@ -157,13 +195,17 @@ export const BookingDateTimePicker = ({ service, onSelectionChange }) => {
             <LoadingSpinner />
           </div>
         ) : availability.length > 0 ? (
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-4 max-h-[20rem] overflow-y-auto pr-2">
+          <div className="grid grid-cols-4 gap-2 max-h-60 overflow-y-auto pt-2">
             {availability.map((slot) => (
               <Button
-                key={slot.time}
+                key={`${slot.time}-${slot.employeeId}`}
                 variant={
-                  selectedTimeSlot?.time === slot.time ? "default" : "outline"
+                  selectedTimeSlot?.time === slot.time &&
+                  selectedTimeSlot?.employeeId === slot.employeeId
+                    ? "default"
+                    : "outline"
                 }
+                size="sm"
                 onClick={() => handleSelectTime(slot)}
               >
                 {slot.time}
@@ -173,11 +215,13 @@ export const BookingDateTimePicker = ({ service, onSelectionChange }) => {
         ) : (
           <div className="flex justify-center items-center h-48">
             <p className="text-center text-sm text-gray-500">
-              No hay horarios disponibles para esta selección.
+              No hay horarios disponibles.
             </p>
           </div>
         )}
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 };

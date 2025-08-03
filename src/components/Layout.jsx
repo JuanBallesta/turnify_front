@@ -25,7 +25,8 @@ import {
   FiGrid,
   FiPlus,
   FiMenu,
-  FiBell,
+  FiBriefcase,
+  FiClock,
 } from "react-icons/fi";
 import { cn } from "@/lib/utils";
 
@@ -77,13 +78,25 @@ const Layout = ({ children }) => {
           { icon: FiGrid, label: "Servicios", path: "/services" },
           { icon: FiCalendar, label: "Citas", path: "/appointments" },
           { icon: FiPlus, label: "Horarios", path: "/schedules" },
+          {
+            icon: FiBriefcase,
+            label: "Configuración del negocio",
+            path: "/business-settings",
+          },
         ];
       case "superuser":
         return [
           ...baseItems,
+          { icon: FiPlus, label: "Reservar Cita", path: "/book" },
+          { icon: FiCalendar, label: "Citas", path: "/appointments" },
           { icon: FiGrid, label: "Negocios", path: "/businesses" },
           { icon: FiUsers, label: "Empleados", path: "/employees" },
           { icon: FiSettings, label: "Panel de Admin", path: "/admin" },
+          {
+            icon: FiSettings,
+            label: "Configurar Perfil (Negocio)",
+            path: "/business-settings",
+          },
         ];
       default:
         return baseItems;
@@ -110,8 +123,8 @@ const Layout = ({ children }) => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-purple-600 text-white font-bold shadow-sm border-b border-gray-200">
-        <div className=" mx-auto px-4 sm:px-6 lg:px-8">
+      <header className="bg-white text-gray-800 font-bold shadow-sm border-b border-gray-200">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Button
@@ -123,20 +136,16 @@ const Layout = ({ children }) => {
                 <FiMenu className="h-5 w-5" />
               </Button>
               <Link to="/dashboard" className="flex items-center space-x-2">
-                <div className="text-2xl font-extrabold cursor-pointer">
+                <div className="text-2xl font-extrabold cursor-pointer text-violet-600">
                   Turnify
                 </div>
               </Link>
             </div>
-
             <div className="flex items-center space-x-4">
-              {/* Icono de Notificaciones */}
               <NotificationCenter />
-
-              {/* Avatar del Usuario */}
               {user && (
                 <DropdownMenu>
-                  <span>{user.name}</span>
+                  <span className="hidden sm:inline">{user.name}</span>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
@@ -170,15 +179,19 @@ const Layout = ({ children }) => {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <Link to="/profile">
-                      <DropdownMenuItem>Mi Perfil</DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer">
+                        Mi Perfil
+                      </DropdownMenuItem>
                     </Link>
                     <Link to="/appointments">
-                      <DropdownMenuItem>Mis Citas</DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer">
+                        Mis Citas
+                      </DropdownMenuItem>
                     </Link>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      onClick={logout}
-                      className="text-red-600 focus:bg-red-50 focus:text-red-700"
+                      onClick={handleLogout}
+                      className="text-red-600 focus:bg-red-50 focus:text-red-700 cursor-pointer"
                     >
                       Cerrar Sesión
                     </DropdownMenuItem>
@@ -201,44 +214,35 @@ const Layout = ({ children }) => {
           <div className="flex flex-col h-full pt-16 lg:pt-0">
             <div className="flex-1 flex flex-col overflow-y-auto">
               <div className="flex-1 px-3 py-4 space-y-1">
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = location.pathname === item.path;
-
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      onClick={() => setSidebarOpen(false)}
-                      className={cn(
-                        "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                        isActive
-                          ? "bg-violet-100 text-violet-700"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
-                      )}
-                    >
-                      <Icon className="mr-3 h-5 w-5" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
+                {navItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setSidebarOpen(false)}
+                    className={cn(
+                      "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                      location.pathname === item.path
+                        ? "bg-violet-100 text-violet-700"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                    )}
+                  >
+                    <item.icon className="mr-3 h-5 w-5" />
+                    {item.label}
+                  </Link>
+                ))}
               </div>
             </div>
           </div>
         </nav>
-
-        {/* Overlay */}
         {sidebarOpen && (
           <div
             className="fixed inset-0 z-40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
-
-        {/* Main content */}
         <main className="flex-1 lg:ml-0">
           <div className="py-6">
-            <div className="mx-auto px-8 sm:px-6 lg:px-8">{children}</div>
+            <div className="mx-auto px-4 sm:px-6 lg:px-8">{children}</div>
           </div>
         </main>
       </div>

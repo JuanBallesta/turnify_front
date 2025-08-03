@@ -1,85 +1,58 @@
 import React from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton"; // Usaremos Skeleton para el estado de carga
 import { cn } from "@/lib/utils";
 
-const StatsCard = React.forwardRef(
-  (
-    {
-      className,
-      title,
-      value,
-      description,
-      icon: Icon,
-      trend,
-      trendValue,
-      variant = "default",
-      ...props
-    },
-    ref,
-  ) => {
-    const variants = {
-      default: "bg-white border-violet-200",
-      primary: "bg-violet-50 border-violet-300",
-      success: "bg-green-50 border-green-300",
-      warning: "bg-yellow-50 border-yellow-300",
-      danger: "bg-red-50 border-red-300",
-    };
-
-    const iconVariants = {
-      default: "text-violet-600 bg-violet-100",
-      primary: "text-violet-700 bg-violet-200",
-      success: "text-green-700 bg-green-200",
-      warning: "text-yellow-700 bg-yellow-200",
-      danger: "text-red-700 bg-red-200",
-    };
-
+/**
+ * Muestra una tarjeta con una estadística clave.
+ * Acepta un prop 'isLoading' para mostrar un estado de esqueleto.
+ */
+export const StatsCard = ({
+  title,
+  value,
+  icon: Icon,
+  description,
+  variant = "default",
+  isLoading, // <-- 1. "Atrapamos" el prop isLoading aquí
+}) => {
+  // 2. Usamos 'isLoading' para decidir qué renderizar
+  if (isLoading) {
     return (
-      <div
-        ref={ref}
-        className={cn(
-          "rounded-xl border p-6 shadow-sm transition-all hover:shadow-md",
-          variants[variant],
-          className,
-        )}
-        {...props}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-gray-600">{title}</p>
-            <div className="flex items-baseline space-x-2">
-              <p className="text-3xl font-bold text-gray-900">{value}</p>
-              {trend && (
-                <span
-                  className={cn(
-                    "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
-                    trend === "up"
-                      ? "text-green-700 bg-green-100"
-                      : "text-red-700 bg-red-100",
-                  )}
-                >
-                  {trend === "up" ? "↗" : "↘"} {trendValue}
-                </span>
-              )}
-            </div>
-            {description && (
-              <p className="text-sm text-gray-500 mt-1">{description}</p>
-            )}
+      <Card>
+        <CardContent className="p-4 flex items-center space-x-4">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-6 w-16" />
           </div>
-          {Icon && (
-            <div
-              className={cn(
-                "flex items-center justify-center w-12 h-12 rounded-lg",
-                iconVariants[variant],
-              )}
-            >
-              <Icon className="w-6 h-6" />
-            </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const variantClasses = {
+    primary: "bg-violet-100 text-violet-600",
+    success: "bg-green-100 text-green-600",
+    danger: "bg-red-100 text-red-600",
+    default: "bg-gray-100 text-gray-600",
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4 flex items-center space-x-4">
+        {Icon && (
+          <div className={cn("p-3 rounded-lg", variantClasses[variant])}>
+            <Icon className="h-6 w-6" />
+          </div>
+        )}
+        <div>
+          <p className="text-sm font-medium text-gray-500">{title}</p>
+          <p className="text-2xl font-bold">{value}</p>
+          {description && (
+            <p className="text-xs text-gray-400">{description}</p>
           )}
         </div>
-      </div>
-    );
-  },
-);
-
-StatsCard.displayName = "StatsCard";
-
-export { StatsCard };
+      </CardContent>
+    </Card>
+  );
+};
