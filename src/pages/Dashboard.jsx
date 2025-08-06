@@ -12,6 +12,9 @@ import { ActionButton } from "@/components/ui/action-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { UpcomingAppointments } from "@/components/ui/upcoming-appointments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { cn } from "@/lib/utils";
 
 // Icons
 import {
@@ -26,11 +29,8 @@ import {
   FiUser,
   FiCheck,
   FiX,
-  FiSettings, // <-- IMPORTACIÓN AÑADIDA
+  FiSettings,
 } from "react-icons/fi";
-import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/StatusBadge";
-import { cn } from "@/lib/utils";
 
 // --- Sub-componente para el Dashboard de Cliente ---
 const ClientDashboard = ({
@@ -88,7 +88,9 @@ const ClientDashboard = ({
         description="Revisa tus citas y tu historial"
         actions={
           <Link to="/appointments">
-            <ActionButton icon={FiCalendar}>Ver Citas</ActionButton>
+            <ActionButton variant="outline" icon={FiCalendar}>
+              Ver Citas
+            </ActionButton>
           </Link>
         }
       />
@@ -97,7 +99,9 @@ const ClientDashboard = ({
         description="Actualiza tu información personal"
         actions={
           <Link to="/profile">
-            <ActionButton icon={FiUser}>Editar Perfil</ActionButton>
+            <ActionButton variant="outline" icon={FiUser}>
+              Editar Perfil
+            </ActionButton>
           </Link>
         }
       />
@@ -131,6 +135,7 @@ const EmployeeDashboard = ({
         description="Servicios programados"
         icon={FiCalendar}
         variant="primary"
+        actionLink="/availability"
       />
       <StatsCard
         title="Este Mes"
@@ -152,7 +157,7 @@ const EmployeeDashboard = ({
           new Set(
             recentAppointments
               .filter((a) => a.status === "completed")
-              .map((a) => a.clientId),
+              .map((a) => a.userId),
           ).size
         }
         description="Clientes únicos este mes"
@@ -193,23 +198,31 @@ const AdminDashboard = ({
   stats,
   servicesCount,
   recentAppointments,
-  appointmentColumns,
-  InfoCard,
-  ActionButton,
-  Link,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-  DataTable,
-  EmptyState,
+  adminView,
+  ...props
 }) => (
   <div className="space-y-6">
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <StatsCard
+        title="Citas de hoy"
+        value={stats.today}
+        description={
+          adminView === "personal"
+            ? "Tus citas personales para hoy"
+            : "Citas del negocio para hoy"
+        }
+        icon={FiCalendar}
+        variant="primary"
+        actionLink="/availability"
+      />
       <StatsCard
         title="Total Citas (Mes)"
         value={stats.monthly}
-        description="Todas las citas del negocio"
+        description={
+          adminView === "personal"
+            ? "Tus citas personales este mes"
+            : "Todas las citas del negocio"
+        }
         icon={FiCalendar}
         variant="primary"
       />
@@ -218,27 +231,25 @@ const AdminDashboard = ({
         value={servicesCount}
         description="Servicios disponibles"
         icon={FiSettings}
-        variant="default"
       />
       <StatsCard
         title="Ingresos (Mes)"
-        value="$12,450"
-        description="Cálculo no implementado"
+        value="$0"
+        description="No implementado"
         icon={FiDollarSign}
         variant="success"
       />
       <StatsCard
         title="Tasa de Ocupación"
-        value="75%"
-        description="Cálculo no implementado"
+        value="0%"
+        description="No implementado"
         icon={FiTrendingUp}
-        variant="default"
       />
     </div>
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <InfoCard
         title="Programar Cita"
-        description="Agenda nuevas citas para clientes"
+        description="Agenda nuevas citas"
         actions={
           <Link to="/book">
             <ActionButton icon={FiPlus}>Programar</ActionButton>
@@ -247,19 +258,23 @@ const AdminDashboard = ({
       />
       <InfoCard
         title="Gestionar Servicios"
-        description="Crea y edita los servicios"
+        description="Crea y edita servicios"
         actions={
           <Link to="/services">
-            <ActionButton icon={FiEdit}>Servicios</ActionButton>
+            <ActionButton variant="outline" icon={FiEdit}>
+              Servicios
+            </ActionButton>
           </Link>
         }
       />
       <InfoCard
         title="Gestionar Empleados"
-        description="Administra tu equipo de trabajo"
+        description="Administra tu equipo"
         actions={
           <Link to="/employees">
-            <ActionButton icon={FiUsers}>Empleados</ActionButton>
+            <ActionButton variant="outline" icon={FiUsers}>
+              Empleados
+            </ActionButton>
           </Link>
         }
       />
@@ -270,13 +285,16 @@ const AdminDashboard = ({
         <TabsTrigger value="analytics">Análisis</TabsTrigger>
       </TabsList>
       <TabsContent value="recent">
-        <DataTable columns={appointmentColumns} data={recentAppointments} />
+        <DataTable
+          columns={props.appointmentColumns}
+          data={recentAppointments}
+        />
       </TabsContent>
       <TabsContent value="analytics">
         <EmptyState
           icon={FiTrendingUp}
           title="Analytics Avanzados"
-          description="Próximamente tendrás acceso a reportes detallados y métricas de rendimiento."
+          description="Próximamente disponible."
         />
       </TabsContent>
     </Tabs>
@@ -289,21 +307,87 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [adminView, setAdminView] = useState("business");
+  const isAdmin = user?.role === "administrator";
 
   useEffect(() => {
     if (user) {
       setIsLoading(true);
-      getDashboardData()
+      const viewContext = isAdmin ? adminView : undefined;
+      getDashboardData(viewContext)
         .then((data) => {
           setDashboardData(data);
         })
-        .catch((err) => {
-          console.error("Error fetching dashboard data:", err);
-          setError("No se pudieron cargar los datos del panel.");
-        })
+        .catch(() => setError("No se pudieron cargar los datos del panel."))
         .finally(() => setIsLoading(false));
     }
-  }, [user]);
+  }, [user, adminView]);
+
+  const { stats, recentAppointments, upcomingAppointments, servicesCount } =
+    useMemo(() => {
+      if (!dashboardData) {
+        return {
+          stats: {},
+          recentAppointments: [],
+          upcomingAppointments: [],
+          servicesCount: 0,
+        };
+      }
+
+      let relevantAppointments = dashboardData.recentAppointments || [];
+      let relevantUpcoming = dashboardData.upcomingAppointments || [];
+      let currentStats = dashboardData.stats;
+      let services = dashboardData.additionalData?.services || 0;
+
+      if (isAdmin && adminView === "personal") {
+        const allAppointments = [...relevantAppointments, ...relevantUpcoming];
+        const personalAppointments = allAppointments.filter(
+          (apt) => apt.client?.email === user.email,
+        );
+
+        relevantAppointments = personalAppointments.slice(0, 10);
+        relevantUpcoming = personalAppointments
+          .filter(
+            (a) =>
+              a.status === "scheduled" && new Date(a.startTime) >= new Date(),
+          )
+          .slice(0, 5);
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfToday = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+        );
+
+        currentStats = {
+          total: personalAppointments.length,
+          scheduled: personalAppointments.filter(
+            (a) => a.status === "scheduled",
+          ).length,
+          completed: personalAppointments.filter(
+            (a) => a.status === "completed",
+          ).length,
+          cancelled: personalAppointments.filter(
+            (a) => a.status === "cancelled",
+          ).length,
+          monthly: personalAppointments.filter(
+            (a) => new Date(a.startTime) >= startOfMonth,
+          ).length,
+          today: personalAppointments.filter(
+            (a) => new Date(a.startTime) >= startOfToday,
+          ).length,
+        };
+      }
+
+      return {
+        stats: currentStats,
+        recentAppointments: relevantAppointments,
+        upcomingAppointments: relevantUpcoming,
+        servicesCount: services,
+      };
+    }, [dashboardData, adminView, isAdmin, user?.email]);
 
   const getRoleLabel = (role) => {
     const roles = {
@@ -332,9 +416,7 @@ const Dashboard = () => {
       title: "Servicio",
       render: (_, row) => (
         <div>
-          <div className="font-medium">
-            {row.offering?.name || "Servicio Eliminado"}
-          </div>
+          <div className="font-medium">{row.offering?.name || "N/A"}</div>
         </div>
       ),
     },
@@ -343,11 +425,8 @@ const Dashboard = () => {
       title: "Fecha y Hora",
       render: (value) =>
         new Date(value).toLocaleString("es-ES", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
+          dateStyle: "short",
+          timeStyle: "short",
         }),
     },
     ...(user?.role !== "client"
@@ -355,30 +434,16 @@ const Dashboard = () => {
           {
             key: "client",
             title: "Cliente",
-            render: (val) => (
-              <span>
-                {val?.name
-                  ? `${val.name} ${val.lastName}`
-                  : "Cliente Eliminado"}
-              </span>
-            ),
+            render: (val) => `${val?.name || ""} ${val?.lastName || ""}`,
           },
         ]
       : []),
-    ...(user?.role === "client" ||
-    user?.role === "administrator" ||
-    user?.role === "superuser"
+    ...(user?.role === "client" || isAdmin || user?.role === "superuser"
       ? [
           {
             key: "employee",
             title: "Empleado",
-            render: (val) => (
-              <span>
-                {val?.name
-                  ? `${val.name} ${val.lastName}`
-                  : "Empleado Eliminado"}
-              </span>
-            ),
+            render: (val) => `${val?.name || ""} ${val?.lastName || ""}`,
           },
         ]
       : []),
@@ -390,9 +455,9 @@ const Dashboard = () => {
   ];
 
   const renderDashboardByRole = () => {
-    if (!dashboardData)
-      return <EmptyState title="No hay datos para mostrar." />;
+    if (!dashboardData) return <EmptyState title="Cargando datos..." />;
 
+    // El objeto props se mantiene igual, ya que la lógica de filtrado está en el backend
     const props = {
       user,
       stats: dashboardData.stats,
@@ -410,6 +475,7 @@ const Dashboard = () => {
       EmptyState,
       Button,
       Link,
+      adminView, // Pasamos la vista actual
     };
 
     switch (user.role) {
@@ -444,14 +510,24 @@ const Dashboard = () => {
       </>
     );
   }
+
   return (
     <>
       <div className="p-6 space-y-6">
         <PageHeader
           title={`¡Bienvenido, ${user.name}!`}
           description={getHeaderDescription()}
-          breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }]}
         />
+
+        {isAdmin && (
+          <Tabs value={adminView} onValueChange={setAdminView}>
+            <TabsList>
+              <TabsTrigger value="business">Citas del Negocio</TabsTrigger>
+              <TabsTrigger value="personal">Mis Citas Personales</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+
         {renderDashboardByRole()}
       </div>
     </>

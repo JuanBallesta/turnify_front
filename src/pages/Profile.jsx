@@ -245,7 +245,7 @@ const Profile = () => {
           description="Gestiona tu información personal y configuración de cuenta"
         />
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="profile">Información Personal</TabsTrigger>
             {/* <TabsTrigger value="activity">Actividad</TabsTrigger> */}
             <TabsTrigger value="security">Seguridad</TabsTrigger>

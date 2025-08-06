@@ -22,7 +22,10 @@ const ActionButton = React.forwardRef(
     const button = (
       <Button
         ref={ref}
-        className={cn("flex items-center space-x-2", className)}
+        className={cn(
+          "flex items-center space-x-2 bg-violet-600 text-white hover:bg-violet-700 hover:text-white",
+          className,
+        )}
         variant={variant}
         size={size}
         disabled={isLoading || props.disabled}

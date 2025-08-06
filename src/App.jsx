@@ -35,6 +35,7 @@ import Employees from "./pages/Employees";
 import ScheduleManagement from "./pages/ScheduleManagement";
 import BusinessProfileSettings from "./pages/BusinessProfileSettings";
 import PublicProfilePage from "./pages/PublicProfilePage";
+import Availability from "./pages/AvailabilityPage";
 
 const queryClient = new QueryClient();
 
@@ -113,6 +114,10 @@ const App = () => {
                     <Route path="/services" element={<Services />} />
                     <Route path="/employees" element={<Employees />} />
                   </Route>
+                  <Route
+                    path="/availability"
+                    element={<Availability />}
+                  ></Route>
                   <Route
                     path="/business-settings"
                     element={
