@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -35,7 +35,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Icons
-import { FiSearch, FiGrid, FiList, FiCheck, FiArrowLeft } from "react-icons/fi";
+import {
+  FiSearch,
+  FiGrid,
+  FiList,
+  FiCheck,
+  FiArrowLeft,
+  FiUser,
+} from "react-icons/fi";
 
 const INITIAL_FILTERS = {
   search: "",
@@ -106,6 +113,7 @@ const ClientSelectionStep = ({ onClientSelect }) => {
       </CardHeader>
       <CardContent className="space-y-4">
         <Button className="w-full" onClick={handleSelectMyself}>
+          <FiUser className="mr-2" />
           Agendar para Mí Mismo
         </Button>
         <div className="relative">
@@ -263,20 +271,30 @@ const BookAppointment = () => {
     }
   }, [isStaff, user]);
 
-  const handleFilterChange = (filterName, value) => {
-    if (filterName === "clearAll") {
-      const newFilters = { ...INITIAL_FILTERS };
+  const handleFilterChange = useCallback(
+    (filterName, value) => {
       const isBookingForOtherClient =
         appointmentClient &&
         appointmentClient.email?.toLowerCase() !== user.email?.toLowerCase();
-      if (isEmployee || (isAdmin && isBookingForOtherClient)) {
-        newFilters.businessId = user.businessId.toString();
+
+      if (
+        (isEmployee || (isAdmin && isBookingForOtherClient)) &&
+        filterName === "businessId"
+      )
+        return;
+
+      if (filterName === "clearAll") {
+        const newFilters = { ...INITIAL_FILTERS };
+        if (isEmployee || (isAdmin && isBookingForOtherClient)) {
+          newFilters.businessId = user.businessId.toString();
+        }
+        setFilters(newFilters);
+      } else {
+        setFilters((prev) => ({ ...prev, [filterName]: value }));
       }
-      setFilters(newFilters);
-    } else {
-      setFilters((prev) => ({ ...prev, [filterName]: value }));
-    }
-  };
+    },
+    [isEmployee, isAdmin, user, appointmentClient],
+  );
 
   const filteredServices = useMemo(() => {
     return services.filter((service) => {
@@ -294,11 +312,13 @@ const BookAppointment = () => {
       );
     });
   }, [services, filters]);
-  const handleSelectClient = (client) => {
+
+  const handleSelectClient = useCallback((client) => {
     setAppointmentClient(client);
     setStep(1);
-  };
-  const resetFlow = () => {
+  }, []);
+
+  const resetFlow = useCallback(() => {
     setAppointmentClient(null);
     if (isStaff) {
       setStep(0);
@@ -308,46 +328,41 @@ const BookAppointment = () => {
     setAppointmentNotes("");
     setError("");
     setShowBookingModal(false);
-  };
-  const handleSelectService = (service) => {
-    if (!appointmentClient) {
-      alert("Error: Por favor, selecciona un cliente primero.");
-      resetFlow();
+    setBookingStep("datetime");
+  }, [isStaff]);
+
+  const handleSelectService = useCallback(
+    (service) => {
+      if (!appointmentClient) {
+        alert("Error: Por favor, selecciona un cliente primero.");
+        resetFlow();
+        return;
+      }
+      setSelectedService(service);
+      setBookingStep("datetime");
+      setShowBookingModal(true);
+    },
+    [appointmentClient, resetFlow],
+  );
+
+  const handleConfirmBooking = useCallback(async () => {
+    if (!bookingData || !selectedService || !appointmentClient) {
+      setError("Faltan datos de la cita.");
       return;
     }
-    setSelectedService(service);
-    setBookingStep("datetime");
-    setShowBookingModal(true);
-  };
-
-  const handleConfirmBooking = async () => {
-    if (!bookingData || !selectedService || !appointmentClient) return;
     setIsConfirming(true);
     setError("");
     try {
       const { date, time, employeeId } = bookingData;
-
-      // --- INICIO DE LA CORRECCIÓN ---
-      // 1. Tomamos el objeto Date que nos da el date-picker.
-      // 2. Separamos la hora y los minutos del string 'time'.
-      // 3. Los establecemos en nuestro objeto Date.
-      const [hours, minutes] = time.split(":").map(Number);
+      const serviceDuration = selectedService.durationMinutes;
+      const [hours, minutes] = time.split(":");
       const startTime = new Date(date);
-      startTime.setHours(hours, minutes, 0, 0); // Seteamos hora, minutos, segundos y milisegundos
-
-      // Verificamos si la fecha resultante es válida.
-      if (isNaN(startTime.getTime())) {
-        throw new Error("La fecha u hora seleccionada no es válida.");
-      }
-
-      const endTime = new Date(
-        startTime.getTime() + selectedService.durationMinutes * 60000,
-      );
-      // --- FIN DE LA CORRECCIÓN ---
+      startTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+      const endTime = new Date(startTime.getTime() + serviceDuration * 60000);
 
       const appointmentData = {
         userId: appointmentClient.id,
-        employeeId,
+        employeeId: employeeId,
         offeringId: selectedService.id,
         startTime,
         endTime,
@@ -357,16 +372,17 @@ const BookAppointment = () => {
       await createAppointment(appointmentData);
       setBookingStep("success");
     } catch (err) {
-      console.error("Error al confirmar la reserva:", err);
       setError(
-        err.message || err.response?.data?.msg || "Error al crear la cita.",
+        err.response?.data?.msg ||
+          err.message ||
+          "Error desconocido al crear la cita.",
       );
     } finally {
       setIsConfirming(false);
     }
-  };
+  }, [bookingData, selectedService, appointmentClient, appointmentNotes]);
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setShowBookingModal(false);
     setTimeout(() => {
       setSelectedService(null);
@@ -375,7 +391,8 @@ const BookAppointment = () => {
       setAppointmentNotes("");
       setError("");
     }, 300);
-  };
+  }, []);
+
   const renderModalContent = () => {
     switch (bookingStep) {
       case "datetime":
@@ -505,14 +522,20 @@ const BookAppointment = () => {
     }
   };
 
-  if (isLoading)
+  if (isLoading && !allServices.length)
     return (
-      <div className="p-8 text-center">
-        <LoadingSpinner size="lg" />
-      </div>
+      <>
+        <div className="p-8 text-center">
+          <LoadingSpinner size="lg" />
+        </div>
+      </>
     );
   if (error && !allServices.length)
-    return <div className="p-8 text-center text-red-500">{error}</div>;
+    return (
+      <>
+        <div className="p-8 text-center text-red-500">{error}</div>
+      </>
+    );
 
   const isBookingForOtherClient =
     appointmentClient &&

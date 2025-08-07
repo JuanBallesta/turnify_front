@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { getDailyScheduleForEmployees } from "@/services/AvailabilityService";
+import {
+  getAvailability,
+  getDailyScheduleForEmployees,
+} from "@/services/AvailabilityService";
 import { getOfferingWithEmployees } from "@/services/AssignmentService";
 import { FiArrowLeft, FiUser, FiCheckCircle, FiXCircle } from "react-icons/fi";
 import { cn } from "@/lib/utils";
@@ -55,9 +58,13 @@ const parseTime = (timeStr) => {
 };
 const formatTime = (date) => date.toTimeString().slice(0, 5);
 
-export const BookingDateTimePicker = ({ service, onSelectionChange }) => {
+export const BookingDateTimePicker = ({
+  service,
+  onSelectionChange,
+  onContinue,
+}) => {
   const [step, setStep] = useState("professional");
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(undefined); // <-- INICIALIZADO COMO UNDEFINED
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [fullDaySchedule, setFullDaySchedule] = useState({});
@@ -83,13 +90,10 @@ export const BookingDateTimePicker = ({ service, onSelectionChange }) => {
       }
 
       const dateString = selectedDate.toISOString().split("T")[0];
-      // Corregimos la lógica para obtener los IDs
       const employeeIds = selectedEmployee
         ? [selectedEmployee.id]
         : employees.map((e) => e.id);
 
-      // Si el admin ha seleccionado un profesional específico, solo usamos ese ID.
-      // Si es 'cualquiera', usamos todos los IDs de los empleados que pueden hacer el servicio.
       if (employeeIds.length === 0 && selectedEmployee) {
         setIsLoading(false);
         setFullDaySchedule({});
@@ -138,19 +142,16 @@ export const BookingDateTimePicker = ({ service, onSelectionChange }) => {
             });
           });
 
-          // Lógica para asignar detalles del empleado a los slots
           const employeeDetailsMap = new Map(employees.map((e) => [e.id, e]));
 
           Object.keys(grid).forEach((timeString) => {
             if (grid[timeString].isAvailable) {
-              // Encuentra qué empleado está trabajando en este horario
               const workingEmployee = workSchedules.find((ws) => {
                 const start = parseTime(ws.startTime);
                 const end = parseTime(ws.endTime);
                 const current = parseTime(timeString);
                 return current >= start && current < end;
               });
-
               const employeeForSlot = employeeDetailsMap.get(
                 workingEmployee?.employeeId,
               );
@@ -182,16 +183,24 @@ export const BookingDateTimePicker = ({ service, onSelectionChange }) => {
     setSelectedEmployee(emp);
     setStep("date");
   };
+
   const handleSelectDate = (date) => {
     if (date) {
       setSelectedDate(date);
-      setStep("time");
     }
   };
+
   const handleSelectTime = (slot) => {
-    setSelectedTimeSlot(slot.details);
-    if (typeof onSelectionChange === "function" && slot.details) {
-      onSelectionChange(slot.details);
+    const selectionDetails = slot.details;
+    setSelectedTimeSlot(selectionDetails);
+
+    if (typeof onSelectionChange === "function" && selectionDetails) {
+      onSelectionChange({
+        date: selectedDate,
+        time: selectionDetails.time,
+        employeeId: selectionDetails.employeeId,
+        employeeName: selectionDetails.employeeName,
+      });
     }
   };
 
@@ -258,7 +267,7 @@ export const BookingDateTimePicker = ({ service, onSelectionChange }) => {
         <h4 className="font-semibold text-lg text-center">
           Paso 2: Elige una Fecha
         </h4>
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center">
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -267,6 +276,13 @@ export const BookingDateTimePicker = ({ service, onSelectionChange }) => {
               date < new Date(new Date().setDate(new Date().getDate() - 1))
             }
           />
+          <Button
+            className="w-full max-w-xs mt-4"
+            onClick={() => setStep("time")}
+            disabled={!selectedDate}
+          >
+            Ver Horarios
+          </Button>
         </div>
       </div>
     );
@@ -293,7 +309,7 @@ export const BookingDateTimePicker = ({ service, onSelectionChange }) => {
         </h4>
         <p className="text-sm text-gray-500 text-center">
           Para el{" "}
-          {selectedDate.toLocaleDateString("es-ES", {
+          {selectedDate?.toLocaleDateString("es-ES", {
             weekday: "long",
             day: "numeric",
           })}
