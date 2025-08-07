@@ -12,20 +12,18 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { ActionButton } from "@/components/ui/action-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { cn } from "@/lib/utils";
 
 // Icons
-import { FiPlus, FiTrash2, FiSave } from "react-icons/fi";
+import { FiPlus, FiTrash2, FiSave, FiUser } from "react-icons/fi";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const daysOfWeek = [
   { value: 1, label: "Lunes" },
@@ -51,7 +49,6 @@ const ScheduleManagement = () => {
 
   useEffect(() => {
     if (!user) return;
-
     if (canSelectEmployee) {
       const businessId = user.role === "administrator" ? user.businessId : null;
       getEmployees(businessId).then(setEmployees).catch(console.error);
@@ -108,7 +105,6 @@ const ScheduleManagement = () => {
     if (!selectedEmployeeId) return;
     setIsSaving(true);
     setSuccessMessage("");
-
     const schedulesToSave = schedules.flatMap((daySchedule) =>
       daySchedule.shifts.map((shift) => ({
         dayOfWeek: daySchedule.day,
@@ -116,7 +112,6 @@ const ScheduleManagement = () => {
         endTime: `${shift.endTime}:00`,
       })),
     );
-
     try {
       await updateSchedules(selectedEmployeeId, schedulesToSave);
       setSuccessMessage("Horarios guardados exitosamente.");
@@ -127,6 +122,13 @@ const ScheduleManagement = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const n = name.trim().split(" ");
+    if (n.length > 1) return `${n[0][0]}${n[n.length - 1][0]}`.toUpperCase();
+    return n[0].substring(0, 2).toUpperCase();
   };
 
   return (
@@ -140,34 +142,65 @@ const ScheduleManagement = () => {
               : "Revisa y ajusta tu disponibilidad semanal."
           }
         />
+
         {canSelectEmployee && (
           <Card>
             <CardHeader>
-              <CardTitle>Seleccionar Empleado</CardTitle>
+              <CardTitle>Paso 1: Seleccionar Empleado</CardTitle>
+              <CardDescription>
+                Elige un empleado para ver o editar su horario de trabajo.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <Select
-                value={selectedEmployeeId}
-                onValueChange={setSelectedEmployeeId}
-              >
-                <SelectTrigger className="w-full md:w-1/3">
-                  <SelectValue placeholder="Selecciona un empleado..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id.toString()}>
-                      {emp.name} {emp.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {employees.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {employees.map((emp) => {
+                    const photoUrl = emp.photo
+                      ? `${API_URL}${emp.photo}`
+                      : undefined;
+                    return (
+                      <button
+                        key={emp.id}
+                        onClick={() => setSelectedEmployeeId(emp.id.toString())}
+                        className={cn(
+                          "p-4 border rounded-lg text-left flex items-center space-x-3 transition-all hover:shadow-md",
+                          selectedEmployeeId === emp.id.toString()
+                            ? "border-violet-500 bg-violet-50"
+                            : "bg-white hover:border-gray-300",
+                        )}
+                      >
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={photoUrl} />
+                          <AvatarFallback>
+                            {getInitials(`${emp.name} ${emp.lastName}`)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">
+                            {emp.name} {emp.lastName}
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            {emp.userType?.name}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  No hay empleados para mostrar.
+                </p>
+              )}
             </CardContent>
           </Card>
         )}
+
+        {/* La tarjeta de horarios ahora solo se muestra si hay un empleado seleccionado */}
         {selectedEmployeeId ? (
           <Card>
             <CardHeader>
-              <CardTitle>Horario Semanal</CardTitle>
+              <CardTitle>Paso 2: Horario Semanal</CardTitle>
               <CardDescription>
                 {canSelectEmployee
                   ? `Horario para ${employees.find((e) => e.id.toString() === selectedEmployeeId)?.name || "..."}.`
@@ -176,7 +209,9 @@ const ScheduleManagement = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {isLoading ? (
-                <p>Cargando horario...</p>
+                <div className="text-center p-8">
+                  <LoadingSpinner />
+                </div>
               ) : (
                 schedules.map((daySchedule, dayIndex) => (
                   <div
@@ -247,7 +282,7 @@ const ScheduleManagement = () => {
                 ))
               )}
               {successMessage && (
-                <Alert className="mt-4">
+                <Alert className="mt-4 font-bold text-green-600 bg-green-200">
                   <AlertDescription>{successMessage}</AlertDescription>
                 </Alert>
               )}
