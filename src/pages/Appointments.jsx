@@ -1,15 +1,22 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   getMyAppointments,
   updateAppointment,
   getAppointmentStats,
 } from "@/services/AppointmentService";
+import { CancellationModal } from "@/components/modals/CancellationModal";
 
 // UI Components
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -28,7 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 import { StatsCard } from "@/components/ui/stats-card";
 import { SearchBox } from "@/components/ui/search-box";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Pagination,
   PaginationContent,
@@ -39,6 +46,7 @@ import {
 } from "@/components/ui/pagination";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { FiAlertCircle } from "react-icons/fi";
 
 // Icons
 import {
@@ -47,8 +55,10 @@ import {
   FiUser,
   FiCheck,
   FiX,
+  FiPlus,
   FiUserX,
   FiMapPin,
+  FiDollarSign,
 } from "react-icons/fi";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -71,6 +81,7 @@ const Appointments = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [isActionLoading, setIsActionLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -78,6 +89,9 @@ const Appointments = () => {
   const [dateFilter, setDateFilter] = useState("all");
   const [adminView, setAdminView] = useState("business");
   const isAdmin = user?.role === "administrator";
+
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState(null);
 
   const loadAppointments = (page = 1) => {
     setIsLoading(true);
@@ -120,14 +134,32 @@ const Appointments = () => {
     }
   };
 
-  const handleStatusUpdate = async (appointmentId, newStatus) => {
+  const handleStatusUpdate = async (appointmentId, newStatus, reason = "") => {
+    setIsActionLoading(true);
     try {
-      await updateAppointment(appointmentId, { status: newStatus });
+      const payload = { status: newStatus };
+      if (newStatus === "cancelled" && reason) {
+        payload.cancellationReason = reason;
+      }
+      await updateAppointment(appointmentId, payload);
       loadAppointments(pagination.currentPage);
       loadStats();
     } catch (error) {
       alert("Error al actualizar el estado de la cita.");
+    } finally {
+      setIsActionLoading(false);
     }
+  };
+
+  const openCancelModal = (appointment) => {
+    setAppointmentToCancel(appointment);
+    setShowCancelModal(true);
+  };
+
+  const handleConfirmCancellation = async (reason) => {
+    if (!appointmentToCancel) return;
+    await handleStatusUpdate(appointmentToCancel.id, "cancelled", reason);
+    setShowCancelModal(false);
   };
 
   const formatDate = (dateStr) =>
@@ -273,8 +305,6 @@ const Appointments = () => {
                 `${appointment.employee?.name || ""} ${appointment.employee?.lastName || ""}`.trim();
               const clientName =
                 `${appointment.client?.name || ""} ${appointment.client?.lastName || ""}`.trim();
-
-              // --- LÓGICA DE AVATAR CORREGIDA ---
               let avatarContact, avatarName;
               if (
                 user.role === "client" ||
@@ -289,12 +319,27 @@ const Appointments = () => {
               const photoUrl = avatarContact?.photo
                 ? `${API_URL}${avatarContact.photo}`
                 : undefined;
-
               const canCancel =
                 (new Date(appointment.startTime) - new Date()) /
                   (1000 * 60 * 60) >
                 24;
               const hasStarted = new Date() >= new Date(appointment.startTime);
+
+              const getCancellationMessage = () => {
+                if (!appointment.cancelledBy) return null;
+
+                let cancelledByName = "";
+                if (appointment.cancelledBy === "client") {
+                  // Si canceló el cliente, usamos el nombre del cliente
+                  cancelledByName = clientName || "el cliente";
+                } else {
+                  // 'staff'
+                  // Si canceló el personal, usamos el nombre del empleado
+                  cancelledByName = employeeName || "el personal";
+                }
+
+                return `Cancelado por: ${cancelledByName}`;
+              };
 
               return (
                 <Card key={appointment.id}>
@@ -315,53 +360,44 @@ const Appointments = () => {
                           {formatDate(appointment.startTime)} a las{" "}
                           {formatTime(appointment.startTime)}
                         </p>
-
                         {user.role === "client" ||
                         (isAdmin && adminView === "personal") ? (
                           <p className="text-sm text-gray-500 flex items-center">
                             <FiUser className="w-4 h-4 mr-2" />
                             Con:{" "}
                             <span className="font-medium ml-1">
-                              {employeeName || "Profesional"}
+                              {employeeName}
                             </span>
                           </p>
-                        ) : null}
-
-                        {user.role === "employee" ? (
+                        ) : (
                           <p className="text-sm text-gray-500 flex items-center">
                             <FiUser className="w-4 h-4 mr-2" />
                             Cliente:{" "}
                             <span className="font-medium ml-1">
-                              {clientName || "Cliente"}
+                              {clientName}
                             </span>
                           </p>
-                        ) : null}
-
-                        {(user.role === "administrator" &&
-                          adminView === "business") ||
-                        user.role === "superuser" ? (
-                          <>
-                            <p className="text-sm text-gray-500 flex items-center">
-                              <FiUser className="w-4 h-4 mr-2" />
-                              Cliente:{" "}
-                              <span className="font-medium ml-1">
-                                {clientName || "Cliente"}
-                              </span>
-                            </p>
-                            <p className="text-sm text-gray-500 flex items-center">
-                              <FiUser className="w-4 h-4 mr-2" />
-                              Profesional:{" "}
-                              <span className="font-medium ml-1">
-                                {employeeName || "Profesional"}
-                              </span>
-                            </p>
-                          </>
-                        ) : null}
-
+                        )}
                         <p className="text-sm text-gray-500 flex items-center">
                           <FiMapPin className="w-4 h-4 mr-2" />
                           {appointment.offering?.business?.name}
                         </p>
+                        {appointment.status === "cancelled" && (
+                          <div className=" text-red-800 text-sm">
+                            <div className="font-semibold flex items-center">
+                              <FiAlertCircle className="w-4 h-4 mr-2" />
+                              <p>
+                                Motivo:{" "}
+                                <span className="font-normal italic">
+                                  "
+                                  {appointment.cancellationReason ||
+                                    "No especificado"}{" "}
+                                  " - {getCancellationMessage()}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col items-end space-y-3 w-full sm:w-auto">
@@ -443,11 +479,7 @@ const Appointments = () => {
                                     size="sm"
                                     variant="destructive"
                                     onClick={() =>
-                                      canCancel &&
-                                      handleStatusUpdate(
-                                        appointment.id,
-                                        "cancelled",
-                                      )
+                                      canCancel && openCancelModal(appointment)
                                     }
                                     disabled={!canCancel}
                                   >
@@ -516,6 +548,13 @@ const Appointments = () => {
           </div>
         )}
       </div>
+
+      <CancellationModal
+        open={showCancelModal}
+        onOpenChange={setShowCancelModal}
+        onConfirm={handleConfirmCancellation}
+        isCancelling={isActionLoading}
+      />
     </>
   );
 };

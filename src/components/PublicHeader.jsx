@@ -43,7 +43,6 @@ const PublicHeader = () => {
 
           <div className="flex items-center space-x-4">
             {user ? (
-              // --- VISTA PARA USUARIOS LOGUEADOS ---
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -93,7 +92,6 @@ const PublicHeader = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              // --- VISTA PARA VISITANTES ANÓNIMOS ---
               <div className="hidden sm:flex items-center space-x-2">
                 <Link to="/login">
                   <Button variant="ghost">Iniciar Sesión</Button>
