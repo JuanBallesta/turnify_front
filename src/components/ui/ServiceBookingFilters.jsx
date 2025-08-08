@@ -101,7 +101,7 @@ export const ServiceBookingFilters = ({
           <SearchBox
             placeholder="Ej: Corte, Manicura..."
             value={filters.search}
-            onFilterChange={(val) => onFilterChange("search", val)}
+            onValueChange={(val) => onFilterChange("search", val)}
           />
         </div>
 
