@@ -20,6 +20,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Layout from "@/components/Layout";
 
 // Pages
+import HomePage from "@/pages/HomePage";
 import Login from "@/pages/Login";
 import AdminLogin from "./pages/AdminLogin";
 import Register from "@/pages/Register";
@@ -59,14 +60,11 @@ const App = () => {
               <BrowserRouter>
                 <Routes>
                   {/* --- RUTAS PÚBLICAS --- */}
+                  <Route path="/" element={<HomePage />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/admin/login" element={<AdminLogin />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/unauthorized" element={<Unauthorized />} />
-                  <Route
-                    path="/"
-                    element={<Navigate to="/dashboard" replace />}
-                  />
                   <Route path="*" element={<NotFound />} />
                   <Route path="/b/:slug" element={<PublicProfilePage />} />
 

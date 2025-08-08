@@ -89,3 +89,12 @@ export const uploadBusinessLogo = async (businessId, file) => {
     throw error;
   }
 };
+
+export const getPublicBusinessBySlug = async (slug) => {
+  try {
+    const response = await apiClient.get(`/businesses/public/by-slug/${slug}`);
+    return response.data.data;
+  } catch (error) {
+    throw error;
+  }
+};

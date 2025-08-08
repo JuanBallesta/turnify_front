@@ -92,7 +92,7 @@ export default function EmployeeForm({
           setFormData({
             name: employee.name || "",
             lastName: employee.lastName || "",
-            userName: employee.userName || "",
+            username: employee.userName || "",
             password: "",
             email: employee.email || "",
             phone: employee.phone || "",

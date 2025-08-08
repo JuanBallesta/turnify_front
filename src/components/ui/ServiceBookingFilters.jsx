@@ -1,5 +1,6 @@
-import React, { useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -9,162 +10,200 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Button } from "@/components/ui/button";
 import { SearchBox } from "@/components/ui/search-box";
-import { FiFilter, FiRefreshCw } from "react-icons/fi";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+
+// Icons
+import {
+  FiFilter,
+  FiRefreshCw,
+  FiMapPin,
+  FiTag,
+  FiDollarSign,
+  FiClock,
+} from "react-icons/fi";
 
 export const ServiceBookingFilters = ({
   businesses,
-  services, // Recibimos la lista de servicios ya filtrada por el padre si es necesario
+  services,
   filters,
   onFilterChange,
-  isLocked, // La única prop necesaria para saber si se debe bloquear
 }) => {
-  // --- CORRECCIÓN ---
-  // Se eliminó el estado `visibleServices` y el `useEffect`.
-  // El componente ahora confía en la lista de `services` que recibe,
-  // que ya ha sido procesada por el componente padre (BookAppointment).
-  // Esto simplifica enormemente la lógica y evita errores de sincronización.
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const categories = useMemo(() => {
-    // Usamos `services` directamente, no el estado local.
+    if (!services) return [];
     const allCategories = services.map((s) => s.category).filter(Boolean);
     return [...new Set(allCategories)];
   }, [services]);
 
   const maxPrice = useMemo(() => {
-    if (services.length === 0) return 50000;
-    const price = Math.max(...services.map((s) => Number(s.price)));
-    return Math.ceil(price / 1000) * 1000;
+    if (!services || services.length === 0) return 50000;
+    return (
+      Math.ceil(Math.max(...services.map((s) => Number(s.price))) / 1000) * 1000
+    );
   }, [services]);
 
   const maxDuration = useMemo(() => {
-    if (services.length === 0) return 240;
-    const duration = Math.max(
-      ...services.map((s) => Number(s.durationMinutes)),
+    if (!services || services.length === 0) return 240;
+    return (
+      Math.ceil(
+        Math.max(...services.map((s) => Number(s.durationMinutes))) / 15,
+      ) * 15
     );
-    return Math.ceil(duration / 15) * 15;
   }, [services]);
 
-  const handlePriceChange = (value) => {
-    onFilterChange("priceRange", value);
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (filters.search) count++;
+    if (filters.businessId !== "all") count++;
+    if (filters.category !== "all") count++;
+    if (isExpanded) {
+      // Solo contamos los filtros avanzados si están visibles
+      if (filters.priceRange[0] > 0 || filters.priceRange[1] < maxPrice)
+        count++;
+      if (
+        filters.durationRange[0] > 0 ||
+        filters.durationRange[1] < maxDuration
+      )
+        count++;
+    }
+    return count;
   };
 
-  const handleDurationChange = (value) => {
-    onFilterChange("durationRange", value);
-  };
-
-  const clearFilters = () => {
-    onFilterChange("clearAll");
-  };
+  const activeFiltersCount = getActiveFiltersCount();
 
   return (
     <Card className="sticky top-20">
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <FiFilter className="w-5 h-5 text-muted-foreground" />
-          <span>Filtros</span>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center space-x-2">
+            <FiFilter className="w-5 h-5 text-gray-400" />
+            <span>Filtros</span>
+            {activeFiltersCount > 0 && (
+              <Badge variant="secondary">{activeFiltersCount}</Badge>
+            )}
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? "Menos" : "Más filtros"}
+          </Button>
+        </div>
       </CardHeader>
+
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <Label>Búsqueda por nombre</Label>
           <SearchBox
             placeholder="Ej: Corte, Manicura..."
             value={filters.search}
-            onValueChange={(val) => onFilterChange("search", val)}
+            onFilterChange={(val) => onFilterChange("search", val)}
           />
         </div>
 
-        {businesses && businesses.length > 0 && (
-          <div className="space-y-2">
-            <Label>Negocio</Label>
-            <Select
-              value={filters.businessId}
-              onValueChange={(val) => onFilterChange("businessId", val)}
-              // Esta prop es la que hace toda la magia. Deshabilita el selector.
-              disabled={isLocked}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar negocio" />
-              </SelectTrigger>
-              <SelectContent>
-                {/* --- CORRECCIÓN LÓGICA --- */}
-                {/* Solo mostramos "Todos los negocios" si el filtro NO está bloqueado */}
-                {!isLocked && (
-                  <SelectItem value="all">Todos los negocios</SelectItem>
-                )}
-                {businesses.map((business) => (
-                  <SelectItem key={business.id} value={business.id.toString()}>
-                    {business.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {/* --- CORRECCIÓN DE TEXTO --- */}
-            {/* El mensaje debe reflejar que es para un empleado, no un admin */}
-            {isLocked && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Como empleado, solo puedes agendar en tu negocio asignado.
-              </p>
-            )}
-          </div>
-        )}
-
         <div className="space-y-2">
-          <Label>Categoría</Label>
+          <Label className="flex items-center">
+            <FiMapPin className="mr-2 h-4 w-4 text-gray-400" />
+            Negocio
+          </Label>
           <Select
-            value={filters.category}
-            onValueChange={(val) => onFilterChange("category", val)}
+            value={filters.businessId}
+            onValueChange={(val) => onFilterChange("businessId", val)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Todas las categorías" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas las categorías</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
+              <SelectItem value="all">Todos los negocios</SelectItem>
+              {businesses.map((b) => (
+                <SelectItem key={b.id} value={b.id.toString()}>
+                  {b.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        <div className="space-y-4 pt-2">
-          <Label>Rango de Precio</Label>
-          <Slider
-            min={0}
-            max={maxPrice}
-            step={1000}
-            value={filters.priceRange}
-            onValueChange={handlePriceChange}
-          />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>${filters.priceRange[0]}</span>
-            <span>${filters.priceRange[1]}</span>
-          </div>
+        <div className="space-y-2">
+          <Label className="flex items-center">
+            <FiTag className="mr-2 h-4 w-4 text-gray-400" />
+            Categoría
+          </Label>
+          <Select
+            value={filters.category}
+            onValueChange={(val) => onFilterChange("category", val)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las categorías</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="space-y-4 pt-2">
-          <Label>Duración (minutos)</Label>
-          <Slider
-            min={0}
-            max={maxDuration}
-            step={15}
-            value={filters.durationRange}
-            onValueChange={handleDurationChange}
-          />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{filters.durationRange[0]} min</span>
-            <span>{filters.durationRange[1]} min</span>
-          </div>
-        </div>
+        {isExpanded && (
+          <>
+            <Separator />
+            <div className="space-y-4">
+              <Label className="flex items-center">
+                <FiDollarSign className="mr-2 h-4 w-4 text-gray-400" />
+                Rango de Precio
+              </Label>
+              <Slider
+                min={0}
+                max={maxPrice}
+                step={1000}
+                value={filters.priceRange}
+                onValueChange={(val) => onFilterChange("priceRange", val)}
+              />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>${filters.priceRange[0]}</span>
+                <span>${filters.priceRange[1]}</span>
+              </div>
+            </div>
 
-        <Button variant="ghost" onClick={clearFilters} className="w-full">
-          <FiRefreshCw className="mr-2 h-4 w-4" />
-          Limpiar Filtros
-        </Button>
+            <div className="space-y-4">
+              <Label className="flex items-center">
+                <FiClock className="mr-2 h-4 w-4 text-gray-400" />
+                Duración (minutos)
+              </Label>
+              <Slider
+                min={0}
+                max={maxDuration}
+                step={15}
+                value={filters.durationRange}
+                onValueChange={(val) => onFilterChange("durationRange", val)}
+              />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>{filters.durationRange[0]} min</span>
+                <span>{filters.durationRange[1]} min</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeFiltersCount > 0 && (
+          <div className="pt-4 border-t">
+            <Button
+              variant="ghost"
+              onClick={() => onFilterChange("clearAll")}
+              className="w-full text-violet-600 hover:text-violet-700 font-semibold"
+            >
+              <FiRefreshCw className="mr-2 h-4 w-4" /> Limpiar{" "}
+              {activeFiltersCount} Filtro(s)
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

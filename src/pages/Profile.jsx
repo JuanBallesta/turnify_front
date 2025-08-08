@@ -268,12 +268,12 @@ const Profile = () => {
                         {user.name} {user.lastName}
                       </CardTitle>
                       <div className="flex items-center space-x-2 mt-2">
-                        <Badge variant={getRoleBadgeVariant(user.role)}>
+                        {/* <Badge variant={getRoleBadgeVariant(user.role)}>
                           {getRoleLabel(user.role)}
-                        </Badge>
-                        <span className="text-sm text-gray-500">
+                        </Badge> */}
+                        {/* <p className="text-sm text-gray-500">
                           @{user.userName}
-                        </span>
+                        </p> */}
                       </div>
                     </div>
                   </div>

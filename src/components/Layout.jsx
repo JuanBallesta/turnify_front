@@ -1,56 +1,73 @@
-import React from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
+import React, { useState } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNotifications } from "@/contexts/NotificationContext";
-import { NotificationCenter } from "@/components/ui/notification-center";
-import useNotificationIntegration from "@/hooks/useNotificationIntegration";
+import Header from "@/components/Header";
+
+// Icons
 import {
-  FiCalendar,
-  FiUser,
-  FiSettings,
-  FiLogOut,
   FiHome,
-  FiUsers,
-  FiGrid,
+  FiUser,
   FiPlus,
-  FiMenu,
+  FiCalendar,
+  FiSettings,
   FiBriefcase,
   FiClock,
+  FiUsers,
+  FiGrid,
 } from "react-icons/fi";
 import { cn } from "@/lib/utils";
 
+// Sub-componente Sidebar
+const Sidebar = ({ navItems, isOpen, setIsOpen }) => {
+  return (
+    <>
+      <div
+        className={cn(
+          "fixed inset-0 bg-black/60 z-30 lg:hidden",
+          isOpen ? "block" : "hidden",
+        )}
+        onClick={() => setIsOpen(false)}
+      />
+      <nav
+        className={cn(
+          "w-64 bg-white shadow-lg flex flex-col transition-transform duration-300 ease-in-out z-40",
+          "fixed inset-y-0 left-0 transform lg:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="h-16 flex items-center justify-left pl-8 bg-violet-600  flex-shrink-0">
+          <Link to="/dashboard" className="text-2xl font-bold text-white ">
+            Turnify
+          </Link>
+        </div>
+        <div className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              onClick={() => setIsOpen(false)}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center px-3 py-2 text-sm font-medium rounded-md",
+                  isActive
+                    ? "bg-violet-100 text-violet-700"
+                    : "text-gray-600 hover:bg-gray-50",
+                )
+              }
+            >
+              <item.icon className="mr-3 h-5 w-5" />
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
+    </>
+  );
+};
+
 const Layout = ({ children }) => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = React.useState(false);
-
-  const getInitials = (name) => {
-    if (!name) return "?";
-    const names = name.trim().split(" ");
-    if (names.length > 1)
-      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
-    return name.substring(0, 2).toUpperCase();
-  };
-
-  const { unreadCount } = useNotifications();
-  useNotificationIntegration();
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
+  const { user } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const getNavItems = () => {
     const baseItems = [
@@ -68,16 +85,16 @@ const Layout = ({ children }) => {
       case "employee":
         return [
           ...baseItems,
-          { icon: FiPlus, label: "Horarios", path: "/schedules" },
+          { icon: FiClock, label: "Horarios", path: "/schedules" },
           { icon: FiCalendar, label: "Citas", path: "/appointments" },
         ];
       case "administrator":
         return [
           ...baseItems,
           { icon: FiUsers, label: "Empleados", path: "/employees" },
-          { icon: FiGrid, label: "Servicios", path: "/services" },
+          { icon: FiBriefcase, label: "Servicios", path: "/services" },
           { icon: FiCalendar, label: "Citas", path: "/appointments" },
-          { icon: FiPlus, label: "Horarios", path: "/schedules" },
+          { icon: FiClock, label: "Horarios", path: "/schedules" },
           {
             icon: FiBriefcase,
             label: "Configuración del negocio",
@@ -87,164 +104,38 @@ const Layout = ({ children }) => {
       case "superuser":
         return [
           ...baseItems,
-          { icon: FiPlus, label: "Reservar Cita", path: "/book" },
-          { icon: FiCalendar, label: "Citas", path: "/appointments" },
           { icon: FiGrid, label: "Negocios", path: "/businesses" },
           { icon: FiUsers, label: "Empleados", path: "/employees" },
-          { icon: FiSettings, label: "Panel de Admin", path: "/admin" },
-          {
-            icon: FiSettings,
-            label: "Configurar Perfil (Negocio)",
-            path: "/business-settings",
-          },
+          { icon: FiBriefcase, label: "Servicios", path: "/services" },
+          { icon: FiCalendar, label: "Citas", path: "/appointments" },
+          { icon: FiClock, label: "Horarios", path: "/schedules" },
         ];
       default:
         return baseItems;
     }
   };
 
-  const navItems = getNavItems();
+  if (!user) {
+    return null;
+  }
 
-  const getRoleLabel = (role) => {
-    switch (role) {
-      case "client":
-        return "Cliente";
-      case "employee":
-        return "Empleado";
-      case "administrator":
-        return "Administrador";
-      case "superuser":
-        return "Super Usuario";
-      default:
-        return role;
-    }
-  };
+  const navItems = getNavItems();
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white text-gray-800 font-bold shadow-sm border-b border-gray-200">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden mr-2"
-              >
-                <FiMenu className="h-5 w-5" />
-              </Button>
-              <Link to="/dashboard" className="flex items-center space-x-2">
-                <div className="text-2xl font-extrabold cursor-pointer text-violet-600">
-                  Turnify
-                </div>
-              </Link>
-            </div>
-            <div className="flex items-center space-x-4">
-              <NotificationCenter />
-              {user && (
-                <DropdownMenu>
-                  <span className="hidden sm:inline">{user.name}</span>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="relative h-10 w-10 rounded-full"
-                    >
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage
-                          src={
-                            user.photo &&
-                            `${import.meta.env.VITE_API_URL}${user.photo}`
-                          }
-                          alt={user.name}
-                          className="object-cover"
-                        />
-                        <AvatarFallback>
-                          {getInitials(`${user.name} ${user.lastName}`)}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">
-                          {user.name} {user.lastName}
-                        </p>
-                        <p className="text-xs leading-none text-muted-foreground">
-                          {user.email}
-                        </p>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <Link to="/profile">
-                      <DropdownMenuItem className="cursor-pointer">
-                        Mi Perfil
-                      </DropdownMenuItem>
-                    </Link>
-                    <Link to="/appointments">
-                      <DropdownMenuItem className="cursor-pointer">
-                        Mis Citas
-                      </DropdownMenuItem>
-                    </Link>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={handleLogout}
-                      className="text-red-600 focus:bg-red-50 focus:text-red-700 cursor-pointer"
-                    >
-                      Cerrar Sesión
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Contenedor principal que se ajusta al sidebar en pantallas grandes */}
+      <div className="lg:pl-64">
+        <Sidebar
+          navItems={navItems}
+          isOpen={sidebarOpen}
+          setIsOpen={setSidebarOpen}
+        />
 
-      <div className="flex">
-        {/* Sidebar */}
-        <nav
-          className={cn(
-            "w-64 bg-white shadow-sm border-r border-gray-200 fixed lg:static inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-in-out lg:translate-x-0",
-            sidebarOpen ? "translate-x-0" : "-translate-x-full",
-          )}
-        >
-          <div className="flex flex-col h-full pt-16 lg:pt-0">
-            <div className="flex-1 flex flex-col overflow-y-auto">
-              <div className="flex-1 px-3 py-4 space-y-1">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setSidebarOpen(false)}
-                    className={cn(
-                      "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                      location.pathname === item.path
-                        ? "bg-violet-100 text-violet-700"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
-                    )}
-                  >
-                    <item.icon className="mr-3 h-5 w-5" />
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-        </nav>
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 z-40 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-        <main className="flex-1 lg:ml-0">
-          <div className="py-6">
-            <div className="mx-auto px-4 sm:px-6 lg:px-8">{children}</div>
-          </div>
-        </main>
+        <div className="flex-1 flex flex-col">
+          <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+
+          <main className="flex-1">{children}</main>
+        </div>
       </div>
     </div>
   );

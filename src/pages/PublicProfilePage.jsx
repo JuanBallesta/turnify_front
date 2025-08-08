@@ -7,7 +7,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import PublicHeader from "@/components/PublicHeader";
+import Header from "@/components/Header";
 
 // Icons
 import {
@@ -60,7 +60,7 @@ const PublicProfilePage = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <PublicHeader />
+      <Header />
 
       {/* --- Banner/Hero Section --- */}
       <div className="bg-violet-50">

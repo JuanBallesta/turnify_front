@@ -48,8 +48,8 @@ const INITIAL_FILTERS = {
   search: "",
   businessId: "all",
   category: "all",
-  priceRange: [0, 50000],
-  durationRange: [0, 240],
+  priceRange: [0, 10000],
+  durationRange: [0, 60],
 };
 
 const ClientSelectionStep = ({ onClientSelect }) => {
