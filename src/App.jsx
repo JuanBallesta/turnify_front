@@ -37,6 +37,7 @@ import ScheduleManagement from "./pages/ScheduleManagement";
 import BusinessProfileSettings from "./pages/BusinessProfileSettings";
 import PublicProfilePage from "./pages/PublicProfilePage";
 import Availability from "./pages/AvailabilityPage";
+import AiChatWidget from "./components/ai/AiChatWidget";
 
 const queryClient = new QueryClient();
 
@@ -140,6 +141,7 @@ const App = () => {
         </AuthProvider>
         <ToastViewport />
       </ToastProvider>
+      <AiChatWidget />
     </QueryClientProvider>
   );
 };
