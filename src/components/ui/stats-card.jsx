@@ -10,6 +10,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FiCalendar } from "react-icons/fi";
 
 export const StatsCard = ({
   title,
@@ -63,9 +64,10 @@ export const StatsCard = ({
         <CardFooter className="pt-0 pb-3">
           <Link to={actionLink} className="w-full ">
             <Button
-              size="sm"
-              className="w-full bg-violet-600 text-white hover:bg-violet-700 hover:text-white"
+              size=""
+              className="ml-3w-32 font-bold text-sm bg-violet-600 text-white hover:bg-violet-700 hover:text-white"
             >
+              <FiCalendar className="mr-4" />
               {actionText}
             </Button>
           </Link>
