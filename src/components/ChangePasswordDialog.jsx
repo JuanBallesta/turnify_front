@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,8 +97,6 @@ const ChangePasswordDialog = ({ children }) => {
     e.preventDefault();
     setError("");
     setSuccess("");
-
-    // Validaciones
     if (
       !formData.currentPassword ||
       !formData.newPassword ||
@@ -176,7 +174,6 @@ const ChangePasswordDialog = ({ children }) => {
             </Alert>
           )}
 
-          {/* Contraseña Actual */}
           <div className="space-y-2">
             <Label htmlFor="currentPassword">Contraseña Actual *</Label>
             <div className="relative">
@@ -211,7 +208,6 @@ const ChangePasswordDialog = ({ children }) => {
             </div>
           </div>
 
-          {/* Nueva Contraseña */}
           <div className="space-y-2">
             <Label htmlFor="newPassword">Nueva Contraseña *</Label>
             <div className="relative">
@@ -245,7 +241,6 @@ const ChangePasswordDialog = ({ children }) => {
               </Button>
             </div>
 
-            {/* Indicador de Fortaleza de Contraseña */}
             {formData.newPassword && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
@@ -278,7 +273,6 @@ const ChangePasswordDialog = ({ children }) => {
             )}
           </div>
 
-          {/* Confirmar Nueva Contraseña */}
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">
               Confirmar Nueva Contraseña *
@@ -314,7 +308,6 @@ const ChangePasswordDialog = ({ children }) => {
               </Button>
             </div>
 
-            {/* Indicador de Coincidencia */}
             {formData.confirmPassword && (
               <div className="flex items-center text-xs">
                 {formData.newPassword === formData.confirmPassword ? (
@@ -332,7 +325,6 @@ const ChangePasswordDialog = ({ children }) => {
             )}
           </div>
 
-          {/* Requisitos de Contraseña */}
           <div className="text-xs text-gray-600 bg-gray-50 p-3 rounded-md">
             <p className="font-medium mb-1">Requisitos de la contraseña:</p>
             <ul className="space-y-1">
@@ -383,7 +375,6 @@ const ChangePasswordDialog = ({ children }) => {
             </ul>
           </div>
 
-          {/* Botones */}
           <div className="flex justify-end space-x-3 pt-4">
             <Button
               type="button"

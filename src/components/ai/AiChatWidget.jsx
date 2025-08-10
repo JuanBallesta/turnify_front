@@ -1,12 +1,12 @@
 import { useState } from "react";
 import axios from "axios";
 import Turny from "/Turny.png";
-import { FiMessageSquare, FiX, FiSend } from "react-icons/fi"; // Íconos para una mejor UI
+import { FiMessageSquare, FiX, FiSend } from "react-icons/fi";
 
 export default function AiChatWidget() {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
-  const [chatHistory, setChatHistory] = useState([]); // Para guardar conversación
+  const [chatHistory, setChatHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -20,7 +20,7 @@ export default function AiChatWidget() {
     setChatHistory((prev) => [...prev, userMessage]);
     setLoading(true);
     setError(null);
-    setQuestion(""); // Limpiar input inmediatamente
+    setQuestion("");
 
     try {
       const response = await axios.post("http://localhost:3000/ai/ask", {
@@ -38,7 +38,6 @@ export default function AiChatWidget() {
 
   return (
     <>
-      {/* Botón Flotante */}
       <button
         onClick={toggleOpen}
         className="fixed bottom-5 right-5 h-16 w-16 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 z-50 p-0 border-none"
@@ -46,10 +45,8 @@ export default function AiChatWidget() {
         title="Asistente Virtual"
       >
         {open ? (
-          // Cuando está abierto, muestra el ícono de cerrar (X)
           <FiX size={28} className="text-violet-600" />
         ) : (
-          // Cuando está cerrado, muestra la imagen
           <img
             src={Turny}
             alt="Asistente Turny"
@@ -58,10 +55,8 @@ export default function AiChatWidget() {
         )}
       </button>
 
-      {/* Ventana del Chat */}
       {open && (
         <div className="fixed bottom-24 right-5 w-80 max-w-[calc(100vw-2.5rem)] bg-white rounded-lg shadow-2xl flex flex-col max-h-[70vh] z-50 border-2 border-violet-600">
-          {/* Header del Chat */}
           <div className="flex items-center p-4 border-b bg-gray-50 rounded-t-lg">
             <img
               src={Turny}
@@ -77,7 +72,6 @@ export default function AiChatWidget() {
             </div>
           </div>
 
-          {/* Historial de Mensajes */}
           <div className="flex-1 p-4 overflow-y-auto space-y-4">
             {chatHistory.map((msg, index) => (
               <div
@@ -101,7 +95,6 @@ export default function AiChatWidget() {
             {error && <div className="text-red-500 text-sm">{error}</div>}
           </div>
 
-          {/* Input para Preguntar */}
           <form
             onSubmit={handleSubmit}
             className="p-4 border-t flex items-center gap-2"
@@ -114,7 +107,6 @@ export default function AiChatWidget() {
               className="flex-1 p-2 border rounded-md focus:ring-2 focus:ring-violet-500 focus:outline-none"
               disabled={loading}
             />
-            {/* --- BOTÓN CORREGIDO --- */}
             <button
               type="submit"
               disabled={loading || !question.trim()}

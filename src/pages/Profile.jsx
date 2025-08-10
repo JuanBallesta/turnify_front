@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import apiClient from "@/services/api";
 import { uploadProfilePhoto } from "@/services/ProfileService";
@@ -7,18 +7,10 @@ import { validatePassword, getPasswordStrength } from "@/lib/validators";
 // UI Components
 
 import { PageHeader } from "@/components/ui/page-header";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/ui/form-field";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ActionButton } from "@/components/ui/action-button";
@@ -51,7 +43,6 @@ import {
   FiFileText,
 } from "react-icons/fi";
 
-// Asumimos que tienes un componente para las estadísticas de perfil
 const ProfileStats = () => (
   <Card>
     <CardHeader>

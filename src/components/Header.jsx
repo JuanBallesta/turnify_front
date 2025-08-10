@@ -35,7 +35,6 @@ const Header = ({ onMenuClick }) => {
   };
 
   return (
-    // --- ESTILOS CORREGIDOS ---
     <header className="bg-violet-600 text-white sticky top-0 z-20">
       <nav className="mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
@@ -52,7 +51,6 @@ const Header = ({ onMenuClick }) => {
                 </Button>
               </div>
             )}
-            {/* El logo solo se muestra en el header del layout logueado */}
             {!onMenuClick && (
               <Link to="/" className="text-2xl font-bold">
                 Turnify

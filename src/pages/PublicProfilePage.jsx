@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getPublicBusinessProfile } from "@/services/PublicService";
 
@@ -12,7 +12,6 @@ import Header from "@/components/Header";
 // Icons
 import {
   FiClock,
-  FiDollarSign,
   FiArrowRight,
   FiMapPin,
   FiPhone,
@@ -20,8 +19,6 @@ import {
   FiInstagram,
   FiFacebook,
   FiMail,
-  FiUsers,
-  FiScissors,
 } from "react-icons/fi";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -62,7 +59,6 @@ const PublicProfilePage = () => {
     <div className="bg-gray-50 min-h-screen">
       <Header />
 
-      {/* --- Banner/Hero Section --- */}
       <div className="bg-violet-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <header className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
@@ -91,7 +87,6 @@ const PublicProfilePage = () => {
       </div>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
-        {/* --- SECCIÓN DE SERVICIOS --- */}
         {business.offerings && business.offerings.length > 0 && (
           <section className="text-center">
             <h2 className="text-3xl font-bold text-gray-900">
@@ -134,7 +129,6 @@ const PublicProfilePage = () => {
           </section>
         )}
 
-        {/* --- SECCIÓN DE EQUIPO --- */}
         {business.employees && business.employees.length > 0 && (
           <section className="text-center">
             <h2 className="text-3xl font-bold text-gray-900">Nuestro Equipo</h2>
@@ -166,7 +160,6 @@ const PublicProfilePage = () => {
 
       <footer className="bg-violet-700 text-white">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 py-12 px-4 sm:px-6 lg:px-8">
-          {/* Columna 1: Info del Negocio */}
           <div className="space-y-4">
             <h3 className="font-bold text-xl">{business.name}</h3>
             <p className="flex items-start">
@@ -174,7 +167,6 @@ const PublicProfilePage = () => {
               {business.address}
             </p>
           </div>
-          {/* Columna 2: Contacto */}
           <div className="space-y-2">
             <h4 className="font-semibold">Contacto</h4>
             <p className="flex items-center">
@@ -186,7 +178,6 @@ const PublicProfilePage = () => {
               {business.email}
             </p>
           </div>
-          {/* Columna 3: Redes Sociales */}
           <div className="space-y-2">
             <h4 className="font-semibold">Síguenos</h4>
             <div className="flex space-x-4">

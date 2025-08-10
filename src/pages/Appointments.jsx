@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   getMyAppointments,
   updateAppointment,
@@ -10,13 +10,7 @@ import { CancellationModal } from "@/components/modals/CancellationModal";
 
 // UI Components
 import { PageHeader } from "@/components/ui/page-header";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -35,7 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import { StatsCard } from "@/components/ui/stats-card";
 import { SearchBox } from "@/components/ui/search-box";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Pagination,
   PaginationContent,
@@ -55,10 +49,8 @@ import {
   FiUser,
   FiCheck,
   FiX,
-  FiPlus,
   FiUserX,
   FiMapPin,
-  FiDollarSign,
 } from "react-icons/fi";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";

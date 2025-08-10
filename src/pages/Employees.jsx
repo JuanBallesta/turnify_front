@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import Layout from "@/components/Layout";
 import EmployeeForm from "@/components/EmployeeForm";
 import { getEmployees, deleteEmployee } from "@/services/EmployeeService";
 
@@ -44,7 +43,6 @@ import {
   UserCheck,
   UserX,
   Mail,
-  Phone,
   Building2,
   ArrowUpDown,
 } from "lucide-react";

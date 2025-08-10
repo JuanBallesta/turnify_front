@@ -13,7 +13,6 @@ export const uploadProfilePhoto = async (userId, role, file) => {
     });
     return response.data;
   } catch (error) {
-    // --- AÑADIMOS UN LOG DETALLADO ---
     console.error(
       "ERROR DETALLADO EN ProfileService:",
       error.response || error,

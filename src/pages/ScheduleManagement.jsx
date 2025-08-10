@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getEmployees } from "@/services/EmployeeService";
 import { getSchedules, updateSchedules } from "@/services/ScheduleService";
@@ -21,7 +21,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
 
 // Icons
-import { FiPlus, FiTrash2, FiSave, FiUser } from "react-icons/fi";
+import { FiPlus, FiTrash2, FiSave } from "react-icons/fi";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -196,7 +196,6 @@ const ScheduleManagement = () => {
           </Card>
         )}
 
-        {/* La tarjeta de horarios ahora solo se muestra si hay un empleado seleccionado */}
         {selectedEmployeeId ? (
           <Card>
             <CardHeader>

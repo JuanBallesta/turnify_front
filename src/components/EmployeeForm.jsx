@@ -192,7 +192,7 @@ export default function EmployeeForm({
           acc[err.path] = err.msg; // ej: acc['userName'] = 'Este nombre de usuario ya está en uso.'
           return acc;
         }, {});
-        setErrors(backendErrors); // ¡Esto mostrará el error debajo del campo correcto!
+        setErrors(backendErrors);
       } else {
         alert(errorData?.msg || "No se pudo guardar el empleado.");
       }

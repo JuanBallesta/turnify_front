@@ -1,4 +1,3 @@
-import React from "react";
 import { Link } from "react-router-dom";
 import { FiFacebook, FiInstagram, FiTwitter, FiMail } from "react-icons/fi";
 
@@ -16,7 +15,6 @@ export const Footer = () => {
             </p>
           </div>
 
-          {/* Columna 2: Navegación */}
           <div>
             <h3 className="text-sm font-semibold tracking-wider uppercase text-white">
               Navegación
@@ -46,7 +44,6 @@ export const Footer = () => {
             </ul>
           </div>
 
-          {/* Columna 3: Legal */}
           <div>
             <h3 className="text-sm font-semibold tracking-wider uppercase text-white">
               Legal
@@ -71,7 +68,6 @@ export const Footer = () => {
             </ul>
           </div>
 
-          {/* Columna 4: Contacto */}
           <div>
             <h3 className="text-sm font-semibold tracking-wider uppercase text-white">
               Contacto
@@ -90,7 +86,6 @@ export const Footer = () => {
           </div>
         </div>
 
-        {/* Sección Inferior: Copyright y Redes Sociales */}
         <div className="mt-8 border-t border-white pt-8 flex flex-col sm:flex-row items-center justify-between">
           <p className="text-sm text-white order-2 sm:order-1 mt-4 sm:mt-0">
             &copy; {currentYear} Turnify. Todos los derechos reservados.

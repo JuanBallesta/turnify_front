@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { validatePassword, getPasswordStrength } from "@/lib/validators";
@@ -20,15 +20,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ActionButton } from "@/components/ui/action-button";
 
 // Icons
-import {
-  FiMail,
-  FiPhone,
-  FiLock,
-  FiEye,
-  FiEyeOff,
-  FiCheck,
-  FiX,
-} from "react-icons/fi";
+import { FiEye, FiEyeOff, FiCheck, FiX } from "react-icons/fi";
 
 const Register = () => {
   const [formData, setFormData] = useState({

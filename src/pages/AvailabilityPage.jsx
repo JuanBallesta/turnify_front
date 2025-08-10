@@ -92,7 +92,6 @@ const AvailabilityPage = () => {
   const [timeGrid, setTimeGrid] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // Cargar la lista de empleados del negocio
   useEffect(() => {
     if (user?.businessId) {
       setIsLoading(true);
@@ -107,7 +106,6 @@ const AvailabilityPage = () => {
     }
   }, [user]);
 
-  // Cargar el horario del empleado seleccionado para la fecha seleccionada
   useEffect(() => {
     if (!selectedEmployee || !selectedDate) {
       setTimeGrid({});
@@ -127,7 +125,6 @@ const AvailabilityPage = () => {
           return;
         }
 
-        // Generamos todos los slots de tiempo posibles dentro de los turnos de trabajo
         workSchedules.forEach((shift) => {
           let currentTime = parseTime(shift.startTime);
           const endTime = parseTime(shift.endTime);
@@ -135,8 +132,6 @@ const AvailabilityPage = () => {
           while (currentTime < endTime) {
             const timeString = formatTime(currentTime);
 
-            // --- LÓGICA DE SOLAPAMIENTO ---
-            // Verificamos si este slot se solapa con alguna cita existente
             const occupyingAppointment = appointments.find((apt) => {
               const aptStart = new Date(apt.startTime);
               const aptEnd = new Date(apt.endTime);
@@ -144,9 +139,6 @@ const AvailabilityPage = () => {
               const [hours, minutes] = timeString.split(":");
               slotStart.setHours(hours, minutes, 0, 0);
 
-              // Un slot está ocupado si empieza antes de que termine una cita,
-              // y termina después de que esa misma cita empiece.
-              // Asumimos que los slots también duran 'interval' minutos para la comprobación.
               const slotEnd = new Date(slotStart.getTime() + interval * 60000);
 
               return slotStart < aptEnd && slotEnd > aptStart;
@@ -165,7 +157,6 @@ const AvailabilityPage = () => {
       .finally(() => setIsLoading(false));
   }, [selectedEmployee, selectedDate]);
 
-  // --- Funciones de ayuda para el manejo del tiempo ---
   const parseTime = (timeStr) => {
     const [hours, minutes] = timeStr.split(":");
     const date = new Date();

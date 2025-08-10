@@ -48,7 +48,7 @@ const INITIAL_FILTERS = {
   search: "",
   businessId: "all",
   category: "all",
-  priceRange: [0, 10000],
+  priceRange: [0, 25000],
   durationRange: [0, 60],
 };
 

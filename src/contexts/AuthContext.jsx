@@ -101,15 +101,11 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("user");
   }, []);
 
-  // --- FUNCIÓN updateUser VERIFICADA Y ROBUSTA ---
   const updateUser = useCallback((newUserData) => {
     setUser((prevUser) => {
       if (!prevUser) return null;
-      // Fusiona los datos antiguos con los nuevos
       const updatedUser = { ...prevUser, ...newUserData };
-      // Guarda el objeto actualizado en localStorage
       localStorage.setItem("user", JSON.stringify(updatedUser));
-      // Devuelve el nuevo estado
       return updatedUser;
     });
   }, []);

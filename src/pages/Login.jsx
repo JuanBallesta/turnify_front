@@ -38,7 +38,6 @@ const Login = () => {
     }
 
     try {
-      // CAMBIO 2: Llamar a la función `loginClient`.
       await loginClient(userName, password);
       navigate("/dashboard");
     } catch (err) {

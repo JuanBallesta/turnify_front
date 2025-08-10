@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import Layout from "@/components/Layout";
 import BusinessForm from "@/components/BusinessForm";
 import { getBusinesses, deleteBusiness } from "@/services/BusinessService";
 
@@ -32,7 +31,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import {
   Pagination,
   PaginationContent,
@@ -43,15 +41,7 @@ import {
 } from "@/components/ui/pagination";
 
 // Icons
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Building2,
-  Users,
-  Mail,
-  Phone,
-} from "lucide-react";
+import { Plus, Edit, Trash2, Building2 } from "lucide-react";
 
 export default function Businesses() {
   const { user } = useAuth();

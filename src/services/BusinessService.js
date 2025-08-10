@@ -75,7 +75,7 @@ export const deleteBusiness = async (id) => {
 
 export const uploadBusinessLogo = async (businessId, file) => {
   const formData = new FormData();
-  formData.append("profilePhoto", file); // El campo debe coincidir con el de multer
+  formData.append("profilePhoto", file);
   try {
     const response = await apiClient.post(
       `/businesses/${businessId}/logo`,

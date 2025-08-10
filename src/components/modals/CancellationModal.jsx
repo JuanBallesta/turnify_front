@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,7 +22,6 @@ export const CancellationModal = ({
   const [reason, setReason] = useState("");
 
   const handleConfirm = () => {
-    // Pasa el motivo al componente padre
     onConfirm(reason);
   };
 

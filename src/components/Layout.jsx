@@ -123,7 +123,6 @@ const Layout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Contenedor principal que se ajusta al sidebar en pantallas grandes */}
       <div className="lg:pl-64">
         <Sidebar
           navItems={navItems}

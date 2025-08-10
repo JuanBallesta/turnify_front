@@ -39,7 +39,6 @@ export const deleteOffering = async (id) => {
 
 export const uploadOfferingPhoto = async (offeringId, file) => {
   const formData = new FormData();
-  // El nombre 'servicePhoto' debe coincidir con el del middleware
   formData.append("servicePhoto", file);
 
   try {

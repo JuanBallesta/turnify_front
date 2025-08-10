@@ -37,7 +37,6 @@ export default function BusinessForm({
         logo: business.logo || "",
       });
     } else {
-      // Si abrimos para crear, reseteamos el formulario
       setFormData({
         name: "",
         address: "",
@@ -47,7 +46,7 @@ export default function BusinessForm({
         logo: "",
       });
     }
-    setErrors({}); // Limpiar errores al abrir el modal
+    setErrors({});
   }, [open, business, isEditing]);
 
   const handleInputChange = (field, value) => {
@@ -57,7 +56,6 @@ export default function BusinessForm({
     }
   };
 
-  // 💡 CAMBIO 3: Validación simple dentro del componente
   const validateForm = () => {
     const newErrors = {};
     if (!formData.name) newErrors.name = "El nombre es requerido.";
@@ -68,7 +66,6 @@ export default function BusinessForm({
     if (!formData.description)
       newErrors.description = "La descripción es requerida.";
 
-    // Validar formato de email (simple)
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "El formato del correo no es válido.";
     }
@@ -77,7 +74,6 @@ export default function BusinessForm({
     return Object.keys(newErrors).length === 0;
   };
 
-  // 💡 CAMBIO 4: handleSubmit ahora usa el servicio de API
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -86,18 +82,15 @@ export default function BusinessForm({
 
     try {
       if (isEditing) {
-        // Llamada a la API para actualizar
         await updateBusiness(business.id, formData);
       } else {
-        // Llamada a la API para crear
         await createBusiness(formData);
       }
-      onSuccess(); // Llama a la función del padre para recargar la lista
-      onOpenChange(false); // Cierra el modal
+      onSuccess();
+      onOpenChange(false);
     } catch (error) {
       console.error("Error al guardar el negocio:", error);
-      // Opcional: Mostrar un error genérico al usuario
-      // setErrors({ submit: "No se pudo guardar el negocio. Inténtelo de nuevo." });
+
       alert(
         "No se pudo guardar el negocio. Revise la consola para más detalles.",
       );
@@ -107,7 +100,6 @@ export default function BusinessForm({
   };
 
   return (
-    // onOpenChange es lo que permite cerrar el modal al hacer clic fuera o presionar ESC
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -123,7 +115,6 @@ export default function BusinessForm({
 
         <form onSubmit={handleSubmit} className="space-y-6 pt-4">
           <div className="space-y-4">
-            {/* El resto del formulario es idéntico, ya que la lógica de renderizado está bien */}
             <div className="space-y-2">
               <Label htmlFor="name">Nombre del Negocio *</Label>
               <Input

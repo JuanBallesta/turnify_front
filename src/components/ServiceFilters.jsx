@@ -162,7 +162,6 @@ const ServiceFiltersComponent = ({
             </Select>
           </div>
 
-          {/* Orden */}
           <div className="space-y-2">
             <Label>Orden</Label>
             <Select

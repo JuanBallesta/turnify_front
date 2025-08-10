@@ -19,7 +19,6 @@ export const ConfirmationModal = ({
   open,
   onOpenChange,
   service,
-  business,
   bookingData,
   onConfirm,
   onBack,
@@ -89,7 +88,6 @@ export const ConfirmationModal = ({
             <FiArrowLeft className="mr-2" />
             Volver
           </Button>
-          {/* Usamos una función de flecha para llamar a onConfirm sin argumentos */}
           <ActionButton
             onClick={() => onConfirm()}
             isLoading={isConfirming}

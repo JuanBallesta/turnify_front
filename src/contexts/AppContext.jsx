@@ -19,7 +19,6 @@ export const AppProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [notificationCallbacks, setNotificationCallbacks] = useState({});
 
-  // CAMBIO CLAVE: Envolver las funciones en useCallback para estabilizarlas
   const registerNotificationCallbacks = useCallback((callbacks) => {
     setNotificationCallbacks(callbacks);
   }, []);

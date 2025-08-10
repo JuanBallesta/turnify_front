@@ -1,18 +1,14 @@
-import React from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Header from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { Link } from "react-router-dom";
 
 import {
   Calendar,
-  User,
   Users,
   Clock,
-  Star,
   CheckCircle,
   ArrowRight,
   Settings,
@@ -44,11 +40,7 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
-      {/* --- NAVEGACIÓN --- */}
-
       <Header />
-
-      {/* --- SECCIÓN PRINCIPAL (HERO) --- */}
       <section className="py-24 px-4 text-center">
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
@@ -94,7 +86,6 @@ const HomePage = () => {
         </motion.div>
       </section>
 
-      {/* --- SECCIÓN DE FUNCIONALIDADES --- */}
       <section className="py-20 px-4 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
@@ -141,7 +132,6 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* --- FOOTER --- */}
       <Footer />
     </div>
   );
